@@ -1,0 +1,17 @@
+nome,idade,sexo,profissao,hora_dormir,hora_acordar,horas_sono,qualidade_sono,interrupcoes_noturnas,cronotipo_pontos,cronotipo,porcoes_frutas,litros_agua,xicaras_cafe,freq_processados,energia,humor,produtividade,dias_exercicio,minutos_exercicio,nivel_estresse,data_envio
+Luciano Camilo,46,Masculino,contador ,23:45:00,09:15:00,7,Boa,2,2,Matutino,5,3.0,3,3,6,6,7,3,80,6,2026-06-24 22:19:48
+Luciano Camilo,46,Masculino,jogador ,00:00:00,06:15:00,6,Boa,1,6,Intermediário,3,2.5,1,1,8,8,8,3,75,4,2026-06-24 23:29:20
+Lucas Camilo,46,Outro,atleta,23:50:00,09:30:00,10,Regular,3,0,Matutino,6,2.5,4,9,6,7,8,4,100,6,2026-06-24 23:52:01
+Bernardo Miranda Camilo,18,Masculino,atleta,00:48:00,06:30:00,7,Boa,3,5,Intermediário,10,4.5,4,2,8,9,10,5,125,8,2026-06-25 00:49:43
+Bernardo Miranda Camilo,30,Masculino,atleta,20:54:00,08:45:00,7,Boa,2,2,Matutino,3,2.0,3,5,6,7,6,2,80,6,2026-06-26 20:56:00
+Bernardo Miranda Camilo,30,Masculino,atleta,22:15:00,08:15:00,9,Boa,4,1,Matutino,6,3.5,5,7,7,8,9,5,105,8,2026-06-26 20:58:57
+Luciano Camilo,58,Masculino,Promotor de vendas,00:00:00,07:00:00,4,Boa,4,4,Intermediário,8,3.5,7,10,8,7,9,4,165,7,2026-06-26 21:24:23
+Camilo ramos ,78,Masculino,vendedor ,21:26:00,08:30:00,12,Excelente,4,2,Matutino,7,3.5,3,6,6,6,6,4,85,6,2026-06-26 21:27:24
+Luciano Camilo,18,Masculino,artista ,01:00:00,07:15:00,8,Regular,0,4,Intermediário,6,3.0,4,6,6,7,7,4,100,7,2026-06-27 00:58:33
+João da Silva ,35,Masculino,pedreiro,00:00:00,04:45:00,5,Regular,2,3,Matutino,5,3.0,2,3,7,8,8,4,110,7,2026-06-27 21:39:44
+William Borges ,48,Masculino,vendedor ,00:30:00,07:00:00,3,Regular,1,6,Intermediário,4,2.5,2,2,6,6,6,3,55,6,2026-06-27 21:44:33
+Luiz da silva,35,Masculino,locutor,00:45:00,10:30:00,4,Boa,3,3,Matutino,4,2.5,2,3,7,7,7,4,105,7,2026-06-27 22:04:20
+Roberto Fernando,20,Masculino,TI,22:15:00,07:00:00,6,Regular,2,3,Matutino,5,2.5,2,6,6,6,6,3,65,6,2026-06-27 22:12:16
+Jose Augusto,18,Masculino,Corretor ,00:00:00,08:15:00,5,Regular,2,3,Matutino,6,2.5,5,6,6,6,7,3,85,6,2026-06-27 22:58:22
+João da Silva ,35,Masculino,pedreiro,00:45:00,05:30:00,8,Regular,2,4,Intermediário,5,3.0,4,7,7,7,7,3,65,6,2026-06-28 00:05:48
+Luciano Camilo,lucianocamilo388@gmail.com,50,Masculino, Coletor,00:15:00,06:30:00,6,Regular,5,3,Matutino,5,2.5,2,3,6,6,6,3,50,6,2026-06-28 11:12:14.267778

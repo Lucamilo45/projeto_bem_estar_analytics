@@ -1,0 +1,48 @@
+# ============================================================
+# Ambiente virtual e cache do Python
+# ============================================================
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+
+# ============================================================
+# Dados gerados pelo app (não devem ir para o GitHub:
+# contêm respostas reais de pessoas, não são "código")
+# ============================================================
+dados_sono.csv
+data/
+*.csv.bak
+
+# ============================================================
+# Configuração local / segredos
+# ============================================================
+.env
+.streamlit/secrets.toml
+
+# ============================================================
+# Arquivos que costumam entrar por acidente
+# (prints, PDFs, documentos arrastados sem querer para o VS Code)
+# ============================================================
+*.pdf
+*.docx
+*.pptx
+*.zip
+*.rar
+Captura de tela*
+Screenshot*
+*copy*.png
+*copy*.jpg
+* copy.*
+* - Copia.*
+* (1).*
+* (2).*
+
+# ============================================================
+# Arquivos de sistema / editor
+# ============================================================
+.DS_Store
+Thumbs.db
+.vscode/
+*.log
