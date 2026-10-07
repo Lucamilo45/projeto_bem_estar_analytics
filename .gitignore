@@ -46,3 +46,4 @@ Screenshot*
 Thumbs.db
 .vscode/
 *.log
+*backup*.csv
