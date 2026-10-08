@@ -15,6 +15,7 @@ e o chamador (app.py) deve usar as dicas fixas locais como alternativa —
 o app precisa continuar funcionando sem IA.
 """
 
+import logging
 import os
 
 try:
@@ -23,7 +24,16 @@ try:
 except ImportError:
     _ANTHROPIC_DISPONIVEL = False
 
+# Mensagens deste módulo aparecem no terminal local e nos logs do Railway.
+logger = logging.getLogger(__name__)
+
 MODELO = "claude-haiku-4-5"
+
+# Tempo máximo (em segundos) esperando a IA responder. Sem isso, a
+# biblioteca pode esperar até 10 minutos e a pessoa fica presa no
+# "Gerando uma dica...". Uma nova tentativa no máximo, pelo mesmo motivo.
+TIMEOUT_SEGUNDOS = 20.0
+MAX_TENTATIVAS_EXTRAS = 1
 
 SYSTEM_PROMPT = (
     "Você dá dicas genéricas e educativas de alimentação saudável por horário "
@@ -72,22 +82,56 @@ def gerar_dica_alimentacao_ia(
         prompt += f"A pessoa relatou consumir {porcoes_frutas} porções de frutas/verduras por dia. "
     prompt += "Dê uma dica curta de tipos de alimentos adequados para este momento."
 
+    # Em qualquer falha abaixo o app continua funcionando sem IA (retorna None),
+    # mas o motivo fica registrado no log para que possa ser corrigido.
     try:
-        client = anthropic.Anthropic()
+        client = anthropic.Anthropic(
+            timeout=TIMEOUT_SEGUNDOS, max_retries=MAX_TENTATIVAS_EXTRAS
+        )
         resposta = client.messages.create(
             model=MODELO,
             max_tokens=200,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
-        texto = "".join(
-            bloco.text for bloco in resposta.content if bloco.type == "text"
-        ).strip()
-        return texto if texto else None
-    except Exception:
-        # Qualquer falha (chave inválida, sem internet, limite de uso,
-        # erro da API) cai aqui — o app continua funcionando sem IA.
+    except anthropic.AuthenticationError:
+        logger.error("IA: chave ANTHROPIC_API_KEY inválida ou revogada.")
         return None
+    except anthropic.PermissionDeniedError:
+        logger.error("IA: a chave não tem permissão para usar a API.")
+        return None
+    except anthropic.NotFoundError:
+        logger.error("IA: modelo '%s' não encontrado (pode ter sido descontinuado).", MODELO)
+        return None
+    except anthropic.RateLimitError:
+        logger.warning("IA: limite de uso atingido; tente novamente mais tarde.")
+        return None
+    except anthropic.BadRequestError as e:
+        # Também acontece quando acabam os créditos da conta.
+        logger.error("IA: pedido recusado pela API: %s", e.message)
+        return None
+    except anthropic.APITimeoutError:
+        logger.warning("IA: sem resposta em %s segundos.", TIMEOUT_SEGUNDOS)
+        return None
+    except anthropic.APIConnectionError:
+        logger.warning("IA: não foi possível conectar à API (internet/rede).")
+        return None
+    except anthropic.APIStatusError as e:
+        logger.error("IA: erro %s da API: %s", e.status_code, e.message)
+        return None
+    except Exception:
+        # Erro inesperado (provavelmente no nosso código): registra o
+        # detalhe completo para facilitar a correção.
+        logger.exception("IA: erro inesperado ao gerar a dica.")
+        return None
+
+    texto = "".join(
+        bloco.text for bloco in resposta.content if bloco.type == "text"
+    ).strip()
+    if not texto:
+        logger.warning("IA: resposta veio vazia (stop_reason=%s).", resposta.stop_reason)
+        return None
+    return texto
 
 
 def periodo_do_dia_atual() -> str:

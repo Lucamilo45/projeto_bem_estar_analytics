@@ -2,6 +2,7 @@
 # Ambiente virtual e cache do Python
 # ============================================================
 venv/
+.venv/
 env/
 __pycache__/
 *.pyc
@@ -11,7 +12,7 @@ __pycache__/
 # Dados gerados pelo app (não devem ir para o GitHub:
 # contêm respostas reais de pessoas, não são "código")
 # ============================================================
-dados_sono.csv
+*.csv
 data/
 *.csv.bak
 
@@ -46,4 +47,3 @@ Screenshot*
 Thumbs.db
 .vscode/
 *.log
-*backup*.csv
