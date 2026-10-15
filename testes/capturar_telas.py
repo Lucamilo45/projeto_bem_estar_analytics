@@ -104,6 +104,15 @@ with tempfile.TemporaryDirectory() as pasta:
                 pagina.goto(f"{URL}/?nutri=demo")
                 esperar_tela(pagina)
                 fotografar(pagina, f"{tamanho}_1_inicio")
+                # A ilustração precisa carregar e ocupar toda a largura da coluna.
+                info = pagina.locator(".home-ilustracao").evaluate(
+                    """i => ({carregou: i.complete && i.naturalWidth > 0,
+                              largura: Math.round(i.getBoundingClientRect().width),
+                              coluna: Math.round(i.closest('[data-testid="stColumn"]')
+                                                  .getBoundingClientRect().width)})"""
+                )
+                print(f"  ilustração carregou: {info['carregou']} | largura "
+                      f"{info['largura']}px de {info['coluna']}px da coluna")
 
                 clicar(pagina, "🚀 Começar o questionário")
                 pagina.get_by_text("Li e concordo").click()

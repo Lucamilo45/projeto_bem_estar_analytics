@@ -1,5 +1,6 @@
-import os
+import base64
 import time
+from pathlib import Path
 
 import plotly.express as px
 import streamlit as st
@@ -24,8 +25,27 @@ st.set_page_config(
 )
 
 # Ilustração da página inicial. A versão .webp (95 KB) é uma cópia leve do
-# banner_home.png original (1,6 MB), para carregar rápido no celular.
-BANNER_PATH = "assets/banner_home.webp"
+# banner_home.png original (1,6 MB); o .png é a alternativa se o .webp faltar.
+# Caminhos montados a partir da pasta deste arquivo: funcionam no Windows,
+# no Linux (Streamlit Cloud/Railway) e de qualquer pasta onde o app for iniciado.
+PASTA_ASSETS = Path(__file__).resolve().parent / "assets"
+BANNERS = [("banner_home.webp", "image/webp"), ("banner_home.png", "image/png")]
+
+
+@st.cache_data
+def banner_em_base64(pasta_assets: str) -> str | None:
+    """Devolve a ilustração como "data URI" (imagem embutida no próprio HTML),
+    ou None se nenhum arquivo existir.
+
+    Embutir a imagem evita o endereço /media do st.image, que no Streamlit
+    Cloud às vezes responde erro 500 e deixa a imagem quebrada.
+    """
+    for nome, tipo in BANNERS:
+        caminho = Path(pasta_assets) / nome
+        if caminho.is_file():
+            conteudo = base64.b64encode(caminho.read_bytes()).decode("ascii")
+            return f"data:{tipo};base64,{conteudo}"
+    return None
 
 # O visual (fontes, cores de cada página, cards) fica em styles.py.
 # O tema certo é aplicado no roteamento, no final deste arquivo.
@@ -99,8 +119,13 @@ def render_home():
             ir_para("dashboard")
 
     with col_imagem:
-        if os.path.exists(BANNER_PATH):
-            st.image(BANNER_PATH, width="stretch")
+        banner = banner_em_base64(str(PASTA_ASSETS))
+        if banner:
+            st.markdown(
+                f'<img class="home-ilustracao" src="{banner}" '
+                'alt="Ilustração de pessoas correndo, pedalando, meditando, trabalhando e cozinhando">',
+                unsafe_allow_html=True,
+            )
 
     styles.cards_coloridos([
         ("rosa", "🌙", "Sono e rotina", "Mapeie seus horários, a qualidade do sono e as vezes em que acorda à noite."),

@@ -399,7 +399,11 @@ def aplicar_tema(pagina: str) -> None:
             line-height: 1.65;
             margin-bottom: 1.4rem;
         }}
-        div[data-testid="stImage"] img {{
+        .home-ilustracao {{
+            display: block;
+            width: 100%;
+            height: auto;
+            box-sizing: border-box;
             border-radius: 28px;
             box-shadow: 0 18px 40px rgba(239, 79, 79, 0.18), 0 6px 16px rgba(13, 148, 136, 0.12);
             border: 6px solid #FFFFFF;
@@ -441,7 +445,7 @@ def aplicar_tema(pagina: str) -> None:
             .block-container {{ padding: 4rem 1rem 2rem; }}
             .progresso-rotulos {{ display: none; }}
             .cartao-recomendacao {{ flex-direction: column; gap: 0.5rem; }}
-            div[data-testid="stImage"] img {{ border-radius: 20px; border-width: 4px; }}
+            .home-ilustracao {{ border-radius: 20px; border-width: 4px; }}
         }}
         </style>
         """,
