@@ -1,5 +1,5 @@
-import base64
 import os
+import time
 
 import plotly.express as px
 import streamlit as st
@@ -7,10 +7,12 @@ from dotenv import load_dotenv
 
 import ai_advisor
 import analysis
+import auth
 import database
-from database import carregar_dados, salvar_dados
+import styles
+from database import salvar_dados
 
-load_dotenv()  # lê o arquivo .env, se existir, para carregar ANTHROPIC_API_KEY
+load_dotenv()  # lê o arquivo .env, se existir (chave da IA e senhas das nutricionistas)
 
 # ============================================================
 # CONFIGURAÇÃO DA PÁGINA
@@ -21,239 +23,12 @@ st.set_page_config(
     layout="wide",
 )
 
-BANNER_PATH = "assets/banner_home.png"
+# Ilustração da página inicial. A versão .webp (95 KB) é uma cópia leve do
+# banner_home.png original (1,6 MB), para carregar rápido no celular.
+BANNER_PATH = "assets/banner_home.webp"
 
-# ============================================================
-# TIPOGRAFIA — toque "tech" em títulos e métricas, mantendo o
-# corpo de texto em fonte legível. Aplicado uma vez, no topo.
-# ============================================================
-st.markdown(
-    """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
-
-    /* ===== VARIÁVEIS ===== */
-    :root {
-        --font-display: 'JetBrains Mono', monospace;
-        --font-body:    'Inter', sans-serif;
-        --accent:       #4f7f69;
-        --accent-strong:#2d6a4f;
-        --surface:      #ffffff;
-        --bg:           #f8fafc;
-        --border:       #e2e8f0;
-        --text-main:    #1a1a2e;
-        --text-soft:    #64748b;
-        --shadow-soft:  0 1px 4px rgba(23,32,51,0.07), 0 4px 16px rgba(23,32,51,0.05);
-    }
-
-    /* ===== BASE ===== */
-    html, body, [class*="css"] { font-family: var(--font-body); }
-    .stApp, section[data-testid="stMain"] { background: var(--bg) !important; }
-
-    /* ===== TÍTULOS ===== */
-    h1 {
-        font-family: var(--font-display) !important;
-        font-size: clamp(1.6rem, 3.5vw, 2.4rem) !important;
-        font-weight: 700 !important;
-        color: var(--text-main) !important;
-        letter-spacing: -0.03em;
-    }
-    h2 {
-        font-family: var(--font-display) !important;
-        font-size: clamp(1.2rem, 2.2vw, 1.65rem) !important;
-        font-weight: 700 !important;
-        color: var(--text-main) !important;
-        letter-spacing: -0.02em;
-    }
-    h3 {
-        font-family: var(--font-display) !important;
-        font-size: clamp(1.08rem, 1.7vw, 1.35rem) !important;
-        font-weight: 650 !important;
-        color: var(--text-main) !important;
-    }
-    div[data-testid="stMarkdownContainer"] p,
-    div[data-testid="stCaptionContainer"] {
-        color: var(--text-soft) !important;
-        line-height: 1.65;
-    }
-
-    /* ===== CARDS DE MÉTRICAS ===== */
-    div[data-testid="stMetric"] {
-        background: rgba(255,255,255,0.92);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 1rem 1.15rem;
-        box-shadow: var(--shadow-soft);
-        transition: box-shadow 0.2s;
-    }
-    div[data-testid="stMetric"]:hover {
-        box-shadow: 0 6px 20px rgba(23,32,51,0.12);
-    }
-    div[data-testid="stMetricValue"] {
-        font-family: var(--font-display) !important;
-        font-size: 1.85rem !important;
-        font-weight: 700 !important;
-        color: var(--text-main) !important;
-    }
-    div[data-testid="stMetricLabel"] {
-        font-family: var(--font-body) !important;
-        text-transform: uppercase;
-        font-size: 0.72rem !important;
-        letter-spacing: 0.08em;
-        color: var(--text-soft) !important;
-        font-weight: 700 !important;
-    }
-
-    /* ===== CAMPOS ===== */
-    div[data-testid="stTextInput"] input,
-    div[data-testid="stNumberInput"] input,
-    div[data-testid="stSelectbox"] > div > div {
-        border-radius: 8px !important;
-        border: 1px solid var(--border) !important;
-        background: var(--surface) !important;
-        font-family: var(--font-body) !important;
-        color: var(--text-main) !important;
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    div[data-testid="stTextInput"] input:focus,
-    div[data-testid="stNumberInput"] input:focus {
-        border-color: var(--accent) !important;
-        box-shadow: 0 0 0 3px rgba(79,127,105,0.16) !important;
-    }
-
-    /* ===== BOTÕES ===== */
-    div[data-testid="stButton"] button {
-        border-radius: 8px !important;
-        font-family: var(--font-body) !important;
-        font-weight: 700 !important;
-        letter-spacing: 0;
-        min-height: 2.8rem;
-        transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease !important;
-    }
-    div[data-testid="stButton"] button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 10px 24px rgba(23,32,51,0.12) !important;
-        border-color: var(--accent) !important;
-    }
-    div[data-testid="stButton"] button[kind="primary"] {
-        background: linear-gradient(135deg, var(--accent-strong), var(--accent)) !important;
-        border-color: var(--accent-strong) !important;
-    }
-
-    /* ===== BARRA DE PROGRESSO ===== */
-    div[data-testid="stProgressBar"] > div {
-        border-radius: 999px !important;
-        height: 7px !important;
-        background: #e4eaf1 !important;
-    }
-    div[data-testid="stProgressBar"] > div > div {
-        background: linear-gradient(90deg, var(--accent-strong), #8cb7a2) !important;
-        border-radius: 999px !important;
-    }
-
-    /* ===== ALERTAS ===== */
-    div[data-testid="stAlert"] {
-        border-radius: 10px !important;
-        border-left-width: 4px !important;
-        font-family: var(--font-body) !important;
-    }
-
-    /* ===== DIVISOR ===== */
-    hr {
-        border-color: var(--border) !important;
-        margin: 1.6rem 0 !important;
-    }
-
-    /* ===== BANNER HERO ===== */
-    .hero-banner {
-        border-radius: 12px !important;
-        box-shadow: var(--shadow-soft);
-    }
-    .hero-banner-content h1 {
-        font-family: var(--font-display) !important;
-        font-size: clamp(2rem, 4vw, 3.2rem) !important;
-        font-weight: 700 !important;
-        color: var(--text-main) !important;
-        letter-spacing: 0;
-    }
-    .hero-banner-content p {
-        font-family: var(--font-body) !important;
-        color: #344054 !important;
-        font-size: 1.08rem !important;
-        line-height: 1.65;
-        max-width: 42rem;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-
-def render_hero_banner(titulo: str, subtitulo: str) -> bool:
-    """Mostra título e subtítulo sobrepostos à imagem de banner.
-
-    Retorna True se a imagem foi encontrada e o banner foi renderizado,
-    False caso contrário (nesse caso o chamador deve usar st.title normal).
-    """
-    if not os.path.exists(BANNER_PATH):
-        return False
-
-    with open(BANNER_PATH, "rb") as f:
-        img_b64 = base64.b64encode(f.read()).decode()
-
-    st.markdown(
-        f"""
-        <style>
-        .hero-banner {{
-            position: relative;
-            background-image: url("data:image/png;base64,{img_b64}");
-            background-size: cover;
-            background-position: center;
-            border-radius: 16px;
-            padding: 56px 40px;
-            margin-bottom: 20px;
-            overflow: hidden;
-        }}
-        .hero-banner::before {{
-            content: "";
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(
-                90deg,
-                rgba(255,255,255,0.92) 0%,
-                rgba(255,255,255,0.75) 35%,
-                rgba(255,255,255,0.15) 70%,
-                rgba(255,255,255,0) 100%
-            );
-            border-radius: 16px;
-        }}
-        .hero-banner-content {{
-            position: relative;
-            z-index: 2;
-            max-width: 600px;
-        }}
-        .hero-banner-content h1 {{
-            color: #2E2E2E;
-            font-size: 2.1rem;
-            margin: 0 0 12px 0;
-        }}
-        .hero-banner-content p {{
-            color: #3a3a3a;
-            font-size: 1.05rem;
-            margin: 0;
-        }}
-        </style>
-        <div class="hero-banner">
-            <div class="hero-banner-content">
-                <h1>{titulo}</h1>
-                <p>{subtitulo}</p>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    return True
+# O visual (fontes, cores de cada página, cards) fica em styles.py.
+# O tema certo é aplicado no roteamento, no final deste arquivo.
 
 # Ordem das etapas do questionário, com nome legível e ícone para o mapa de progresso.
 ETAPAS_QUESTIONARIO = [
@@ -274,6 +49,13 @@ if "step" not in st.session_state:
 if "user_data" not in st.session_state:
     st.session_state.user_data = {}
 
+# Nutricionista que convidou a pessoa, lida do link (ex: ...?nutri=ana).
+# Só é aceita se existir uma senha configurada para esse código; assim
+# um link digitado errado não liga respostas a uma nutricionista que não existe.
+if "nutricionista_id" not in st.session_state:
+    codigo_link = auth.normalizar_codigo(st.query_params.get("nutri"))
+    st.session_state.nutricionista_id = codigo_link if auth.nutricionista_existe(codigo_link) else ""
+
 
 def ir_para(etapa: str) -> None:
     st.session_state.step = etapa
@@ -281,165 +63,51 @@ def ir_para(etapa: str) -> None:
 
 
 def barra_progresso() -> None:
-    """Mostra um mapa visual das etapas do questionário, destacando onde a
-    pessoa está, o que já foi concluído e o que ainda falta."""
+    """Mostra a barra de progresso do questionário, com uma cor por etapa,
+    destacando onde a pessoa está e quanto falta."""
     if st.session_state.step not in _CHAVES_ETAPAS:
         return
 
     idx_atual = _CHAVES_ETAPAS.index(st.session_state.step)
-
-    cols = st.columns(len(ETAPAS_QUESTIONARIO))
-    for i, (_, label) in enumerate(ETAPAS_QUESTIONARIO):
-        with cols[i]:
-            if i < idx_atual:
-                st.markdown(
-                    f"<div style='text-align:center; color:#7A9E7E; font-size:0.85rem;'>"
-                    f"✅<br>{label}</div>",
-                    unsafe_allow_html=True,
-                )
-            elif i == idx_atual:
-                st.markdown(
-                    f"<div style='text-align:center; font-weight:700; color:#2E2E2E; font-size:0.85rem;'>"
-                    f"🔵<br>{label}</div>",
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.markdown(
-                    f"<div style='text-align:center; opacity:0.4; font-size:0.85rem;'>"
-                    f"⚪<br>{label}</div>",
-                    unsafe_allow_html=True,
-                )
-
-    st.progress((idx_atual + 1) / len(ETAPAS_QUESTIONARIO))
-    st.caption(f"Etapa {idx_atual + 1} de {len(ETAPAS_QUESTIONARIO)} · faltam {len(ETAPAS_QUESTIONARIO) - idx_atual - 1}")
+    styles.progresso_etapas([rotulo for _, rotulo in ETAPAS_QUESTIONARIO], idx_atual)
+    faltam = len(ETAPAS_QUESTIONARIO) - idx_atual - 1
+    st.caption(
+        f"Etapa {idx_atual + 1} de {len(ETAPAS_QUESTIONARIO)} · "
+        + ("última etapa! 🎉" if faltam == 0 else f"falta{'m' if faltam > 1 else ''} {faltam}")
+    )
 
 
 # ============================================================
 # ETAPA: HOME
 # ============================================================
 def render_home():
-    st.markdown(
-        """
-        <style>
-        .home-actions {
-            display: grid;
-            grid-template-columns: minmax(260px, 0.9fr) minmax(280px, 1.7fr);
-            gap: 1rem;
-            margin: 1.75rem 0 1.25rem;
-            align-items: stretch;
-        }
-        div[data-testid="stButton"] button {
-            min-height: 3.35rem;
-            border-radius: 12px !important;
-            font-size: 1rem !important;
-            font-weight: 800 !important;
-            letter-spacing: 0;
-        }
-        div[data-testid="stButton"] button[kind="primary"] {
-            background: linear-gradient(135deg, #2f684f 0%, #4f9a73 54%, #f2a84a 100%) !important;
-            color: #ffffff !important;
-            border: 0 !important;
-            box-shadow: 0 16px 32px rgba(47,104,79,0.28) !important;
-        }
-        div[data-testid="stButton"] button[kind="primary"]:hover {
-            filter: saturate(1.08) brightness(1.03);
-            transform: translateY(-2px);
-            box-shadow: 0 20px 38px rgba(47,104,79,0.34) !important;
-        }
-        div[data-testid="stButton"] button:not([kind="primary"]) {
-            background: #ffffff !important;
-            color: #25364d !important;
-            border: 1px solid #cfd8e5 !important;
-            box-shadow: 0 10px 24px rgba(23,32,51,0.07) !important;
-        }
-        div[data-testid="stButton"] button:not([kind="primary"]):hover {
-            border-color: #4f7f69 !important;
-            color: #2f684f !important;
-            background: #f8fbf9 !important;
-            transform: translateY(-2px);
-        }
-        .home-highlights {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 1rem;
-            margin-top: 1.25rem;
-        }
-        .home-highlight {
-            background: rgba(255,255,255,0.86);
-            border: 1px solid #dce3ec;
-            border-radius: 14px;
-            padding: 1rem 1.05rem;
-            box-shadow: 0 12px 26px rgba(23,32,51,0.07);
-        }
-        .home-highlight strong {
-            display: block;
-            color: #172033;
-            font-size: 0.98rem;
-            margin-bottom: 0.25rem;
-        }
-        .home-highlight span {
-            color: #5f6b7a;
-            font-size: 0.9rem;
-            line-height: 1.45;
-        }
-        .hero-banner-content h1 {
-            font-weight: 750 !important;
-            letter-spacing: 0 !important;
-            color: #15162b !important;
-            text-shadow: 0 2px 14px rgba(255,255,255,0.78);
-        }
-        .hero-banner-content p {
-            color: #3f536f !important;
-            font-weight: 500;
-            line-height: 1.65;
-        }
-        @media (max-width: 760px) {
-            .home-actions, .home-highlights { grid-template-columns: 1fr; }
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    # Texto à esquerda e ilustração à direita; no celular as colunas
+    # empilham e o título aparece acima da imagem.
+    col_texto, col_imagem = st.columns([1, 1.45], gap="large", vertical_alignment="center")
 
-    tem_banner = render_hero_banner(
-        "🌙 Análise de Sono, Cronotipo e Qualidade de Vida",
-        "Responda algumas perguntas rápidas sobre seu sono, alimentação e bem-estar "
-        "e descubra como seus hábitos impactam sua energia no dia a dia.",
-    )
-    if not tem_banner:
-        st.title("🌙 Análise de Sono, Cronotipo e Qualidade de Vida")
-        st.write(
-            "Responda algumas perguntas rápidas sobre seu sono, alimentação e bem-estar "
-            "e descubra como seus hábitos impactam sua energia no dia a dia."
+    with col_texto:
+        st.markdown(
+            '<div class="home-selo">✨ Leva só 3 minutinhos</div>'
+            '<h1 class="home-titulo">Cuide do seu <span class="destaque">sono, energia e bem-estar</span></h1>'
+            '<p class="home-subtitulo">Responda perguntas rápidas sobre sua rotina, alimentação '
+            "e atividade física e descubra como seus hábitos influenciam o seu dia a dia.</p>",
+            unsafe_allow_html=True,
         )
-
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        if st.button("🚀 Começar Questionário", type="primary", use_container_width=True):
+        if st.button("🚀 Começar o questionário", type="primary", width="stretch"):
             ir_para("consentimento")
-    with col2:
-        if st.button("📊 Ver Dashboard dos Dados", use_container_width=True):
+        if st.button("📊 Ver Dashboard", width="stretch"):
             ir_para("dashboard")
 
-    st.markdown(
-        """
-        <div class="home-highlights">
-            <div class="home-highlight">
-                <strong>🌙 Sono e rotina</strong>
-                <span>Mapeie horários, qualidade do sono e interrupções noturnas.</span>
-            </div>
-            <div class="home-highlight">
-                <strong>⚡ Energia diária</strong>
-                <span>Veja como alimentação, água e atividade física se conectam ao bem-estar.</span>
-            </div>
-            <div class="home-highlight">
-                <strong>📈 Evolução visual</strong>
-                <span>Acompanhe respostas coletadas em gráficos e indicadores simples.</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    with col_imagem:
+        if os.path.exists(BANNER_PATH):
+            st.image(BANNER_PATH, width="stretch")
+
+    styles.cards_coloridos([
+        ("rosa", "🌙", "Sono e rotina", "Mapeie seus horários, a qualidade do sono e as vezes em que acorda à noite."),
+        ("amarelo", "⚡", "Energia no dia a dia", "Veja como alimentação, água e exercícios se conectam ao seu bem-estar."),
+        ("verde_agua", "🥗", "Alimentação", "Entenda seus hábitos de frutas, água, café e alimentos processados."),
+        ("roxo", "💡", "Dicas para você", "Receba seu índice de bem-estar e dicas práticas ao final."),
+    ])
 
 
 # ============================================================
@@ -471,7 +139,8 @@ def render_perfil():
 
     # Aviso de boas-vindas de volta, sem bloquear o preenchimento.
     email_valido = _validar_email(email)
-    if email_valido and database.email_ja_respondeu(email):
+    nutricionista_id = st.session_state.nutricionista_id
+    if email_valido and nutricionista_id and database.email_ja_respondeu(email, nutricionista_id):
         st.info("👋 Bem-vindo(a) de volta! Encontramos respostas suas anteriores.")
 
     col1, col2 = st.columns(2)
@@ -642,6 +311,8 @@ def render_atividade():
             "dias_exercicio": exercicio,
             "minutos_exercicio": minutos,
             "nivel_estresse": estresse,
+            # Liga a resposta à nutricionista do link (vazio = nenhuma).
+            database.COLUNA_NUTRICIONISTA: st.session_state.nutricionista_id,
         })
         salvar_dados(st.session_state.user_data.copy())
         ir_para("resumo")
@@ -732,31 +403,37 @@ def gerar_dicas(dados: dict) -> list:
 def render_resumo():
     st.balloons()
     dados = st.session_state.user_data
-    st.title("🎉 Seu Relatório Personalizado")
-    st.write(f"Obrigado, **{dados.get('nome', '')}**! Aqui está o seu resumo:")
+    primeiro_nome = (dados.get("nome") or "").strip().split(" ")[0]
+    styles.hero(
+        "🎉",
+        f"Parabéns{', ' + primeiro_nome if primeiro_nome else ''}!",
+        "Você concluiu o questionário. Aqui está o seu relatório personalizado.",
+        claro=True,
+    )
 
     indice = analysis.calcular_indice_bem_estar(dados)
     classificacao = analysis.classificar_indice_bem_estar(indice)
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Horas de sono", f"{dados.get('horas_sono', '-')}h")
-    col2.metric("Cronotipo", dados.get("cronotipo", "-"))
-    col3.metric("Nível de energia", f"{dados.get('energia', '-')}/10")
-    col4.metric(
-        "Índice de Bem-Estar",
-        f"{indice}/100",
-        help="Combina sono, água, exercício, frutas, estresse, energia e humor. "
-             "É um índice próprio deste projeto, não uma medida clínica validada.",
+    styles.cards_indicadores([
+        ("🌟", "Índice de bem-estar", f"{indice}/100", classificacao),
+        ("😴", "Horas de sono", f"{dados.get('horas_sono', '-')}h", "por noite"),
+        ("🌅", "Cronotipo", str(dados.get("cronotipo", "-")), "seu ritmo natural"),
+        ("⚡", "Energia", f"{dados.get('energia', '-')}/10", "durante o dia"),
+    ], "resultado")
+    st.caption(
+        "O índice combina sono, água, exercício, frutas, estresse, energia e humor. "
+        "É um índice próprio deste projeto, não uma medida clínica."
     )
-    st.caption(f"Classificação: **{classificacao}**")
 
-    st.subheader("💡 Dicas personalizadas")
+    st.subheader("💡 Dicas para você")
     for dica in gerar_dicas(dados):
-        st.info(dica)
+        icone, _, texto = dica.partition(" ")
+        styles.cartao_recomendacao(icone, "Recomendação", texto)
 
-    st.subheader("🍽️ Dica de Alimentação")
+    st.subheader("🍽️ Dica de alimentação")
+    dica_ia = None
     if ai_advisor.ia_disponivel():
-        with st.spinner("Gerando uma dica personalizada..."):
+        with st.spinner("Preparando uma dica especial para você..."):
             periodo = ai_advisor.periodo_do_dia_atual()
             dica_ia = ai_advisor.gerar_dica_alimentacao_ia(
                 cronotipo=dados.get("cronotipo", "Intermediário"),
@@ -764,27 +441,20 @@ def render_resumo():
                 periodo=periodo,
                 porcoes_frutas=dados.get("porcoes_frutas"),
             )
-        if dica_ia:
-            st.success(dica_ia)
-        else:
-            st.info(
-                "🍎 Prefira refeições leves e bem distribuídas ao longo do dia, "
-                "priorizando frutas, verduras e bastante água. "
-                "Para orientação alimentar específica, consulte um nutricionista."
-            )
+    if dica_ia:
+        styles.cartao_recomendacao("🤖", "Sugestão da nossa assistente", dica_ia)
     else:
-        st.info(
-            "🍎 Prefira refeições leves e bem distribuídas ao longo do dia, "
+        styles.cartao_recomendacao(
+            "🍎",
+            "Sugestão para o seu dia",
+            "Prefira refeições leves e bem distribuídas ao longo do dia, "
             "priorizando frutas, verduras e bastante água. "
-            "Para orientação alimentar específica, consulte um nutricionista."
+            "Para orientação alimentar específica, consulte um nutricionista.",
         )
 
     render_contato_nutricionista()
 
-    col1, col2 = st.columns(2)
-    if col1.button("📊 Ver Dashboard Geral"):
-        ir_para("dashboard")
-    if col2.button("🏠 Voltar ao início"):
+    if st.button("🏠 Voltar ao início", type="primary"):
         st.session_state.user_data = {}
         ir_para("home")
 
@@ -792,20 +462,76 @@ def render_resumo():
 # ============================================================
 # DASHBOARD
 # ============================================================
-def render_dashboard():
-    st.title("📊 Dashboard - Visão Geral dos Dados Coletados")
+def render_login_nutricionista() -> None:
+    """Formulário de entrada da nutricionista (código + senha)."""
+    styles.hero(
+        "🔐",
+        "Área da nutricionista",
+        "Entre com o seu código e a sua senha para ver as respostas dos seus pacientes.",
+    )
+
+    with st.form("form_login"):
+        codigo = st.text_input("Seu código de nutricionista", key="login_codigo")
+        senha = st.text_input("Senha", type="password", key="login_senha")
+        entrou = st.form_submit_button("Entrar", width="stretch")
+
+    if entrou:
+        if auth.verificar_login(codigo, senha):
+            st.session_state.nutri_logada = auth.normalizar_codigo(codigo)
+            st.rerun()
+        else:
+            # Pequena espera dificulta tentativas automáticas de adivinhar a senha.
+            time.sleep(1)
+            st.error("Código ou senha incorretos. Confira e tente de novo.")
 
     if st.button("⬅️ Voltar ao início"):
         ir_para("home")
 
-    df = carregar_dados()
+
+def _grafico(fig) -> None:
+    """Mostra um gráfico do dashboard com as cores e fontes da página."""
+    st.plotly_chart(styles.estilizar_grafico(fig, "dashboard"), width="stretch")
+
+
+def render_dashboard():
+    nutri = st.session_state.get("nutri_logada")
+    if not nutri:
+        render_login_nutricionista()
+        return
+
+    styles.hero(
+        "📊",
+        "Painel dos seus pacientes",
+        f"Olá, {nutri}! Aqui você vê somente as respostas de quem entrou pelo seu link.",
+    )
+
+    col1, col2 = st.columns(2)
+    if col1.button("⬅️ Voltar ao início", width="stretch"):
+        ir_para("home")
+    if col2.button("🚪 Sair", width="stretch"):
+        st.session_state.nutri_logada = None
+        ir_para("home")
+
+    st.caption(
+        f"🔗 Para convidar pacientes, envie o endereço deste app com **?nutri={nutri}** "
+        f"no final (exemplo: https://seu-app.up.railway.app/?nutri={nutri})."
+    )
+
+    # Somente as respostas desta nutricionista. Nunca usar carregar_dados()
+    # aqui: ela traz os dados de todas.
+    df = database.carregar_dados_da_nutricionista(nutri)
+    cores = styles.cores_graficos("dashboard")
 
     if df.empty:
-        st.warning("Ainda não há dados coletados. Responda o questionário primeiro!")
+        st.info(
+            "🌱 Ainda não há respostas dos seus pacientes. Assim que alguém responder "
+            "pelo seu link, os dados aparecem aqui."
+        )
         return
 
     # Avisa se alguma linha tem dado numérico inválido (virou NaN na validação)
-    linhas_com_problema = df[df.isna().any(axis=1)]
+    colunas_checadas = [c for c in database.COLUNAS_NUMERICAS if c in df.columns]
+    linhas_com_problema = df[df[colunas_checadas].isna().any(axis=1)]
     if not linhas_com_problema.empty:
         st.info(
             f"⚠️ {len(linhas_com_problema)} resposta(s) têm algum valor inválido e "
@@ -821,123 +547,109 @@ def render_dashboard():
     indices_bem_estar = df.apply(lambda linha: analysis.calcular_indice_bem_estar(linha.to_dict()), axis=1)
     indice_medio = round(indices_bem_estar.mean(), 1) if len(indices_bem_estar) > 0 else None
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total de participantes", len(df))
-    col2.metric("Análises realizadas", len(resumo))
-    col3.metric("Resultados significativos", len(significativos))
-    if indice_medio is not None:
-        col4.metric(
-            "Índice de Bem-Estar médio",
-            f"{indice_medio}/100",
-            help="Combina sono, água, exercício, frutas, estresse, energia e humor. "
-                 "É um índice próprio deste projeto, não uma medida clínica validada.",
-        )
-
-    st.divider()
+    styles.cards_indicadores([
+        ("👥", "Pacientes", str(len(df)), "respostas recebidas"),
+        ("🌟", "Bem-estar médio", f"{indice_medio}/100" if indice_medio is not None else "-",
+         "índice próprio, não clínico"),
+        ("🔬", "Análises", str(len(resumo)), "relações testadas"),
+        ("✅", "Significativas", str(len(significativos)), "com evidência (p < 0,05)"),
+    ], "dashboard")
 
     # ------------------------------------------------------------
     # Insights descritivos (seguros mesmo com poucos dados)
     # ------------------------------------------------------------
-    st.subheader("💡 Insights")
+    st.subheader("💡 Destaques")
     insights = analysis.gerar_insights_descritivos(df)
     if insights:
         for insight in insights:
             st.write(insight)
     else:
-        st.caption("Ainda não há dados suficientes para gerar insights.")
+        st.caption("Ainda não há dados suficientes para gerar destaques.")
 
     st.divider()
 
     # ------------------------------------------------------------
     # Análise estatística (regressões, com aviso de amostra mínima)
     # ------------------------------------------------------------
-    st.subheader("📈 Análise Estatística")
+    st.subheader("📈 Análise estatística")
 
     if not analysis.amostra_suficiente(df):
-        st.warning(
+        st.info(
             f"São necessárias pelo menos {analysis.AMOSTRA_MINIMA} respostas para gerar "
-            f"análises estatísticas confiáveis (atualmente há {len(df)}). "
-            "Com poucos dados, qualquer relação encontrada seria pouco confiável "
-            "— continue coletando respostas para liberar essa seção."
+            f"análises estatísticas confiáveis (você tem {len(df)}). "
+            "Com poucos dados, qualquer relação encontrada seria pouco confiável. "
+            "Continue convidando pacientes para liberar esta seção."
         )
     elif not resumo:
         st.info("Não há pares de variáveis suficientes para análise no momento.")
     else:
         if significativos:
-            st.write(f"**{len(significativos)} relação(ões) com evidência estatística (p < 0.05):**")
+            st.write(f"**{len(significativos)} relação(ões) com evidência estatística (p < 0,05):**")
             for r in significativos:
                 st.success(f"**{r['forca']}** · {analysis.interpretar_resultado(r)}")
         else:
             st.write(
                 "Nenhuma das relações testadas mostrou evidência estatística "
-                "significativa até agora (todas com p ≥ 0.05). Isso é esperado com "
-                "amostras pequenas — não significa que as relações não existam."
+                "significativa até agora (todas com p ≥ 0,05). Isso é esperado com "
+                "amostras pequenas e não significa que as relações não existam."
             )
 
         with st.expander("Ver todos os resultados testados, incluindo os não significativos"):
             for r in resumo:
                 selo = "✅ significativo" if r["significativo"] else "⏳ ainda não confirmado"
-                st.write(f"**{r['rotulo']}** — correlação {r['forca'].lower()} ({selo})")
+                st.write(f"**{r['rotulo']}**: correlação {r['forca'].lower()} ({selo})")
                 st.caption(analysis.interpretar_resultado(r))
 
     st.divider()
 
     # ------------------------------------------------------------
-    # Gráficos
+    # Gráficos (todos com a paleta turquesa / verde-água da página)
     # ------------------------------------------------------------
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("Distribuição de Cronotipos")
+        st.subheader("🌅 Cronotipos")
         if "cronotipo" in df.columns:
-            fig = px.pie(df, names="cronotipo", hole=0.4,
-                         color_discrete_sequence=px.colors.qualitative.Pastel)
-            st.plotly_chart(fig, use_container_width=True)
+            _grafico(px.pie(df, names="cronotipo", hole=0.45, color_discrete_sequence=cores))
 
     with col2:
-        st.subheader("Horas de Sono vs Energia")
+        st.subheader("😴 Sono x energia")
         if "horas_sono" in df.columns and "energia" in df.columns:
-            fig = px.scatter(df, x="horas_sono", y="energia", color="cronotipo",
-                              trendline="ols",
-                              color_discrete_sequence=px.colors.qualitative.Pastel,
-                              labels={"horas_sono": "Horas de sono", "energia": "Energia (0-10)"})
-            st.plotly_chart(fig, use_container_width=True)
+            _grafico(px.scatter(df, x="horas_sono", y="energia", color="cronotipo",
+                                trendline="ols", color_discrete_sequence=cores,
+                                labels={"horas_sono": "Horas de sono", "energia": "Energia (0-10)"}))
 
     col3, col4 = st.columns(2)
 
     with col3:
-        st.subheader("Porções de Frutas vs Energia")
+        st.subheader("🍎 Frutas x energia")
         if "porcoes_frutas" in df.columns and "energia" in df.columns:
-            fig = px.scatter(df, x="porcoes_frutas", y="energia",
-                              trendline="ols",
-                              color_discrete_sequence=["#9b8cf2"],
-                              labels={"porcoes_frutas": "Porções de frutas/dia", "energia": "Energia (0-10)"})
-            st.plotly_chart(fig, use_container_width=True)
+            _grafico(px.scatter(df, x="porcoes_frutas", y="energia",
+                                trendline="ols", color_discrete_sequence=[cores[2]],
+                                labels={"porcoes_frutas": "Porções de frutas/dia", "energia": "Energia (0-10)"}))
 
     with col4:
-        st.subheader("Dias de Exercício vs Estresse")
+        st.subheader("🏃 Exercício x estresse")
         if "dias_exercicio" in df.columns and "nivel_estresse" in df.columns:
-            fig = px.scatter(df, x="dias_exercicio", y="nivel_estresse",
-                              trendline="ols",
-                              color_discrete_sequence=["#f4a261"],
-                              labels={"dias_exercicio": "Dias de exercício/semana", "nivel_estresse": "Estresse (0-10)"})
-            st.plotly_chart(fig, use_container_width=True)
+            _grafico(px.scatter(df, x="dias_exercicio", y="nivel_estresse",
+                                trendline="ols", color_discrete_sequence=[cores[3]],
+                                labels={"dias_exercicio": "Dias de exercício/semana", "nivel_estresse": "Estresse (0-10)"}))
 
-    st.subheader("Estresse vs Qualidade do Sono")
+    st.subheader("🧘 Estresse x qualidade do sono")
     if "nivel_estresse" in df.columns and "qualidade_sono" in df.columns:
-        fig = px.box(df, x="qualidade_sono", y="nivel_estresse",
-                     color="qualidade_sono",
-                     category_orders={"qualidade_sono": ["Ruim", "Regular", "Boa", "Excelente"]},
-                     color_discrete_sequence=px.colors.qualitative.Pastel)
-        st.plotly_chart(fig, use_container_width=True)
+        _grafico(px.box(df, x="qualidade_sono", y="nivel_estresse",
+                        color="qualidade_sono",
+                        category_orders={"qualidade_sono": ["Ruim", "Regular", "Boa", "Excelente"]},
+                        color_discrete_sequence=cores,
+                        labels={"qualidade_sono": "Qualidade do sono", "nivel_estresse": "Estresse (0-10)"}))
 
-    st.subheader("📋 Dados brutos")
-    st.dataframe(df, use_container_width=True)
+    st.subheader("📋 Respostas dos seus pacientes")
+    st.dataframe(df, width="stretch")
 
     st.download_button(
-        "⬇️ Baixar CSV completo",
+        "⬇️ Baixar as respostas (CSV)",
         df.to_csv(index=False).encode("utf-8"),
-        file_name="dados_sono.csv",
+        file_name=f"respostas_{nutri}.csv",
         mime="text/csv",
     )
 
@@ -948,23 +660,24 @@ def render_dashboard():
 def render_consentimento():
     """Tela de consentimento obrigatória antes do questionário.
     Exibida uma vez por sessão, quando o usuário clica em 'Começar Questionário'."""
-    st.title("📋 Termo de Consentimento")
+    styles.hero(
+        "📋",
+        "Antes de começar",
+        "Leia com atenção como cuidamos das suas informações.",
+    )
     st.markdown(
         """
-        Antes de começar, leia com atenção:
-
         **O que coletamos**
         Nome, e-mail, idade, sexo, profissão e informações sobre seus hábitos de sono,
         alimentação, atividade física e bem-estar geral.
 
         **Como usamos**
-        Seus dados são utilizados exclusivamente para gerar seu relatório personalizado
-        e alimentar análises estatísticas agregadas (sem identificação individual)
-        que ajudam a melhorar o sistema.
+        Seus dados são utilizados para gerar seu relatório personalizado e para que a
+        nutricionista que te convidou acompanhe suas respostas e sua evolução.
 
         **Quem tem acesso**
-        Somente os responsáveis pela plataforma e, se aplicável, o profissional de
-        saúde que te convidou a participar. Seus dados não são vendidos ou
+        Somente os responsáveis pela plataforma e a nutricionista que te convidou,
+        com acesso protegido por senha. Seus dados não são vendidos nem
         compartilhados com terceiros.
 
         **Seus direitos (LGPD)**
@@ -986,12 +699,12 @@ def render_consentimento():
     )
 
     col1, col2 = st.columns(2)
-    if col1.button("⬅️ Voltar", use_container_width=True):
+    if col1.button("⬅️ Voltar", width="stretch"):
         ir_para("home")
     if col2.button(
         "✅ Concordo e quero continuar",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         disabled=not aceite,
     ):
         st.session_state["consentimento_aceito"] = True
@@ -1011,4 +724,12 @@ ROTAS = {
     "dashboard": render_dashboard,
 }
 
+# Tema visual (cores) de cada tela. Telas do questionário ficam roxas.
+TEMA_DA_TELA = {
+    "home": "inicio",
+    "resumo": "resultado",
+    "dashboard": "dashboard",
+}
+
+styles.aplicar_tema(TEMA_DA_TELA.get(st.session_state.step, "questionario"))
 ROTAS[st.session_state.step]()

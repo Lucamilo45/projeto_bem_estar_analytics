@@ -1,14 +1,20 @@
 [theme]
-primaryColor = "#4f7f69"
-backgroundColor = "#f8fafc"
-secondaryBackgroundColor = "#F5F1EA"
-textColor = "#1a1a2e"
+# Cores base dos controles do Streamlit (sliders, caixas de marcar, foco).
+# São as do questionário, onde ficam quase todos os controles. As cores
+# de cada página são aplicadas por CSS em styles.py.
+primaryColor = "#7C3AED"
+backgroundColor = "#FAF7FF"
+secondaryBackgroundColor = "#F3EEFF"
+textColor = "#2E1065"
 font = "sans serif"
 
 [server]
 headless = true
-enableCORS = false
 enableXsrfProtection = true
+# A pasta do projeto fica no OneDrive, que nem sempre avisa o Streamlit
+# quando um arquivo muda. "poll" faz o Streamlit conferir os arquivos
+# periodicamente, para o "Rerun" sempre usar a versão salva mais recente.
+fileWatcherType = "poll"
 
 [browser]
 gatherUsageStats = false

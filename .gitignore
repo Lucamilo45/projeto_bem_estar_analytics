@@ -47,3 +47,6 @@ Screenshot*
 Thumbs.db
 .vscode/
 *.log
+
+# Fotos das telas geradas por testes/capturar_telas.py
+testes/capturas/

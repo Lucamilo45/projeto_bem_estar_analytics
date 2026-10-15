@@ -1,0 +1,4 @@
+# Ferramentas usadas só para testar no computador (não vão para o Railway).
+# Instalar com: venv\Scripts\pip install -r requirements-dev.txt
+-r requirements.txt
+playwright==1.63.0
