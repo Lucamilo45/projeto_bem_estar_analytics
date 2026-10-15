@@ -19,6 +19,7 @@ import sys
 import tempfile
 import time
 import urllib.request
+from urllib.parse import unquote
 
 from playwright.sync_api import sync_playwright
 
@@ -87,7 +88,9 @@ os.makedirs(PASTA_FOTOS, exist_ok=True)
 with tempfile.TemporaryDirectory() as pasta:
     criar_dados_ficticios(os.path.join(pasta, "dados_sono.csv"))
     env = dict(os.environ, SENHA_NUTRI_DEMO=SENHA, ANTHROPIC_API_KEY="",
-               DADOS_CSV=os.path.join(pasta, "dados_sono.csv"))
+               NOME_NUTRI_DEMO="Nutricionista Demo", WHATSAPP_NUTRI_DEMO="5511900000000",
+               INSTAGRAM_NUTRI_DEMO="nutri.demo", DADOS_CSV=os.path.join(pasta, "dados_sono.csv"))
+    env.pop("APP_URL", None)  # o link deve usar o endereço real do app
     servidor = subprocess.Popen(
         [os.path.join(PASTA_PROJETO, "venv", "Scripts", "streamlit.exe"), "run", "app.py",
          "--server.port", str(PORTA), "--server.headless", "true"],
@@ -99,7 +102,11 @@ with tempfile.TemporaryDirectory() as pasta:
             navegador = p.chromium.launch(channel="msedge")
             for tamanho, largura, altura in (("computador", 1366, 900), ("celular", 390, 844)):
                 print(f"\n{tamanho}:")
-                pagina = navegador.new_page(viewport={"width": largura, "height": altura})
+                contexto = navegador.new_context(
+                    viewport={"width": largura, "height": altura}, accept_downloads=True,
+                    permissions=["clipboard-read", "clipboard-write"],
+                )
+                pagina = contexto.new_page()
 
                 pagina.goto(f"{URL}/?nutri=demo")
                 esperar_tela(pagina)
@@ -128,6 +135,12 @@ with tempfile.TemporaryDirectory() as pasta:
                     clicar(pagina, "Próximo ➡️")
                 clicar(pagina, "🎉 Finalizar")
                 fotografar(pagina, f"{tamanho}_3_resultado")
+                contatos = pagina.locator(".botao-contato")
+                print("  contatos para o paciente:",
+                      [contatos.nth(i).get_attribute("href").split("?")[0] for i in range(contatos.count())])
+                contatos.first.scroll_into_view_if_needed()
+                time.sleep(1)
+                fotografar(pagina, f"{tamanho}_3b_contatos")
 
                 clicar(pagina, "🏠 Voltar ao início")
                 clicar(pagina, "📊 Ver Dashboard")
@@ -139,11 +152,32 @@ with tempfile.TemporaryDirectory() as pasta:
                 graficos = pagina.locator(".js-plotly-plot").count()
                 print(f"  gráficos desenhados na tela: {graficos}")
                 fotografar(pagina, f"{tamanho}_4_dashboard")
+                # Link de convite: copiar, compartilhar e QR Code
+                link_mostrado = pagina.locator('[data-testid="stCode"]').first.inner_text().strip()
+                print("  link de convite mostrado:", link_mostrado)
+                quadro = pagina.frame_locator('iframe[title="st.iframe"], iframe').first
+                quadro.get_by_text("Copiar link").click()
+                time.sleep(1)
+                copiado = pagina.evaluate("navigator.clipboard.readText()")
+                print("  'Copiar link' copiou o link certo:", copiado == link_mostrado,
+                      "| botão mostra:", quadro.locator("#copiar").inner_text().strip())
+                compartilhar = pagina.get_by_role("link", name="📲 Compartilhar no WhatsApp")
+                print("  'Compartilhar no WhatsApp' contém o link:",
+                      link_mostrado in unquote(compartilhar.get_attribute("href")))
+                with pagina.expect_download() as baixado:
+                    pagina.locator(".botao-qr").click()
+                arquivo = baixado.value
+                destino = os.path.join(PASTA_FOTOS, f"{tamanho}_qrcode_{arquivo.suggested_filename}")
+                arquivo.save_as(destino)
+                print(f"  QR Code baixado: {arquivo.suggested_filename} ({os.path.getsize(destino)} bytes)")
+                pagina.locator(".qr-convite").scroll_into_view_if_needed()
+                time.sleep(1)
+                fotografar(pagina, f"{tamanho}_4b_convite")
                 # O Streamlit rola por dentro da página: rola até os gráficos.
                 pagina.locator(".js-plotly-plot").first.scroll_into_view_if_needed()
                 time.sleep(1)
                 fotografar(pagina, f"{tamanho}_5_graficos")
-                pagina.close()
+                contexto.close()
             navegador.close()
     finally:
         servidor.terminate()

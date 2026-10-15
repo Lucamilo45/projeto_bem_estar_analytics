@@ -1,14 +1,19 @@
 import base64
+import html
+import json
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 import plotly.express as px
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
 import ai_advisor
 import analysis
 import auth
+import convite
 import database
 import styles
 from database import salvar_dados
@@ -106,6 +111,13 @@ def render_home():
     col_texto, col_imagem = st.columns([1, 1.45], gap="large", vertical_alignment="center")
 
     with col_texto:
+        # Quem chega pelo link de uma nutricionista vê de quem é o convite.
+        perfil = auth.perfil(st.session_state.nutricionista_id)
+        if perfil:
+            st.markdown(
+                f'<div class="home-selo home-selo-convite">💚 Convite de {html.escape(perfil["nome"])}</div>',
+                unsafe_allow_html=True,
+            )
         st.markdown(
             '<div class="home-selo">✨ Leva só 3 minutinhos</div>'
             '<h1 class="home-titulo">Cuide do seu <span class="destaque">sono, energia e bem-estar</span></h1>'
@@ -347,63 +359,37 @@ def render_atividade():
 # ETAPA: RESUMO / RELATÓRIO PERSONALIZADO
 # ============================================================
 # ============================================================
-# CONTATO DA NUTRICIONISTA PARCEIRA
+# CONTATO DA NUTRICIONISTA
 # ============================================================
-# TODO: trocar pelos dados reais quando a parceria for confirmada.
-# Número do WhatsApp no formato internacional, só números (ex: 5511999999999).
-NUTRICIONISTA_WHATSAPP_NUMERO = "5511999999999"
-NUTRICIONISTA_WHATSAPP_MENSAGEM = "Olá! Vi sua recomendação no app de Bem-Estar e gostaria de uma orientação nutricional."
-NUTRICIONISTA_INSTAGRAM_USUARIO = "sua_nutricionista"  # sem o @
-
-
 def render_contato_nutricionista() -> None:
-    """Mostra botões de contato com a nutricionista parceira (WhatsApp e Instagram),
-    com as cores características de cada rede social."""
-    import urllib.parse
+    """Mostra o WhatsApp e o Instagram da nutricionista que convidou a pessoa
+    (pelo link ?nutri=codigo). Sem nutricionista no link, ou sem contatos
+    cadastrados, mostra só a recomendação geral — nunca um contato de exemplo."""
+    perfil = auth.perfil(st.session_state.nutricionista_id)
+    if not perfil or not (perfil["whatsapp"] or perfil["instagram"]):
+        st.caption("Quer uma orientação alimentar personalizada? Procure um(a) nutricionista.")
+        return
 
-    mensagem_codificada = urllib.parse.quote(NUTRICIONISTA_WHATSAPP_MENSAGEM)
-    link_whatsapp = f"https://wa.me/{NUTRICIONISTA_WHATSAPP_NUMERO}?text={mensagem_codificada}"
-    link_instagram = f"https://instagram.com/{NUTRICIONISTA_INSTAGRAM_USUARIO}"
-
-    st.markdown(
-        """
-        <style>
-        .botao-contato {
-            display: block;
-            text-align: center;
-            padding: 0.6rem 1rem;
-            border-radius: 8px;
-            text-decoration: none !important;
-            font-weight: 600;
-            font-size: 0.95rem;
-            font-family: 'Inter', sans-serif;
-            transition: opacity 0.15s ease;
-        }
-        .botao-contato:hover { opacity: 0.88; }
-        .botao-whatsapp { background-color: #25D366; color: white !important; }
-        .botao-instagram {
-            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
-            color: white !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.caption("Quer uma orientação alimentar personalizada de verdade? Fale com nossa nutricionista parceira:")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(
-            f'<a href="{link_whatsapp}" target="_blank" class="botao-contato botao-whatsapp">'
-            f'💬 WhatsApp da Nutricionista</a>',
-            unsafe_allow_html=True,
+    nome = html.escape(perfil["nome"])
+    botoes = []
+    if perfil["whatsapp"]:
+        mensagem = quote(
+            f"Olá, {perfil['nome']}! Respondi o questionário de bem-estar "
+            "e gostaria de uma orientação nutricional."
         )
-    with col2:
-        st.markdown(
-            f'<a href="{link_instagram}" target="_blank" class="botao-contato botao-instagram">'
-            f'📸 Instagram da Nutricionista</a>',
-            unsafe_allow_html=True,
+        botoes.append(
+            f'<a href="https://wa.me/{perfil["whatsapp"]}?text={mensagem}" target="_blank" '
+            f'rel="noopener" class="botao-contato botao-whatsapp">💬 WhatsApp de {nome}</a>'
         )
+    if perfil["instagram"]:
+        botoes.append(
+            f'<a href="https://instagram.com/{perfil["instagram"]}" target="_blank" '
+            f'rel="noopener" class="botao-contato botao-instagram">📸 @{perfil["instagram"]}</a>'
+        )
+
+    st.subheader("🥗 Fale com a sua nutricionista")
+    st.caption(f"Quer uma orientação alimentar personalizada? Fale com {perfil['nome']}:")
+    st.markdown(f'<div class="grade-botoes">{"".join(botoes)}</div>', unsafe_allow_html=True)
 
 
 def gerar_dicas(dados: dict) -> list:
@@ -518,16 +504,91 @@ def _grafico(fig) -> None:
     st.plotly_chart(styles.estilizar_grafico(fig, "dashboard"), width="stretch")
 
 
+def _botao_copiar(texto: str) -> None:
+    """Botão "Copiar link". Roda num pequeno quadro HTML com JavaScript,
+    porque o Streamlit não tem um botão de copiar pronto."""
+    components.html(
+        f"""
+        <style>body {{ margin: 0; }}</style>
+        <button id="copiar" style="width:100%; min-height:48px; border:0; border-radius:14px;
+            background:#0F766E; color:#fff; font:700 16px Inter, system-ui, sans-serif; cursor:pointer;">
+            📋 Copiar link
+        </button>
+        <script>
+        const texto = {json.dumps(texto)};
+        const botao = document.getElementById("copiar");
+        function avisar() {{
+            botao.textContent = "✅ Link copiado!";
+            setTimeout(() => botao.textContent = "📋 Copiar link", 2500);
+        }}
+        botao.addEventListener("click", async () => {{
+            try {{
+                await navigator.clipboard.writeText(texto);
+                avisar();
+            }} catch (erro) {{
+                // Alternativa para navegadores que bloqueiam a área de transferência
+                const campo = document.createElement("textarea");
+                campo.value = texto;
+                document.body.appendChild(campo);
+                campo.select();
+                document.execCommand("copy");
+                campo.remove();
+                avisar();
+            }}
+        }});
+        </script>
+        """,
+        height=56,
+    )
+
+
+def render_convite(perfil: dict) -> None:
+    """Link próprio da nutricionista, com botões de copiar e compartilhar e QR Code."""
+    link = convite.link_da_nutricionista(perfil["codigo"])
+    st.subheader("🔗 Seu link de convite")
+    st.caption(
+        "Envie este link aos seus pacientes. Quem responder por ele aparece **somente** "
+        "no seu painel e vê os seus contatos no final do questionário."
+    )
+
+    col_link, col_qr = st.columns([1.6, 1], gap="large")
+    with col_link:
+        st.code(link, language=None, wrap_lines=True)
+        _botao_copiar(link)
+        st.link_button(
+            "📲 Compartilhar no WhatsApp",
+            convite.link_compartilhar_whatsapp(perfil["nome"], link),
+            width="stretch",
+        )
+        if not (perfil["whatsapp"] or perfil["instagram"]):
+            st.caption(
+                "💡 Seus pacientes ainda não veem seu WhatsApp/Instagram: peça ao "
+                "administrador para cadastrá-los."
+            )
+    with col_qr:
+        png = convite.qr_code_png(link, perfil["nome"])
+        dados = base64.b64encode(png).decode("ascii")
+        st.markdown(
+            f'<img class="qr-convite" src="data:image/png;base64,{dados}" '
+            f'alt="QR Code do link de convite">'
+            f'<a class="botao-contato botao-qr" href="data:image/png;base64,{dados}" '
+            f'download="convite-{perfil["codigo"]}.png">⬇️ Baixar QR Code para imprimir</a>',
+            unsafe_allow_html=True,
+        )
+    st.divider()
+
+
 def render_dashboard():
     nutri = st.session_state.get("nutri_logada")
     if not nutri:
         render_login_nutricionista()
         return
 
+    perfil = auth.perfil(nutri) or {"codigo": nutri, "nome": nutri, "whatsapp": "", "instagram": ""}
     styles.hero(
         "📊",
         "Painel dos seus pacientes",
-        f"Olá, {nutri}! Aqui você vê somente as respostas de quem entrou pelo seu link.",
+        f"Olá, {perfil['nome']}! Aqui você vê somente as respostas de quem entrou pelo seu link.",
     )
 
     col1, col2 = st.columns(2)
@@ -537,10 +598,7 @@ def render_dashboard():
         st.session_state.nutri_logada = None
         ir_para("home")
 
-    st.caption(
-        f"🔗 Para convidar pacientes, envie o endereço deste app com **?nutri={nutri}** "
-        f"no final (exemplo: https://seu-app.up.railway.app/?nutri={nutri})."
-    )
+    render_convite(perfil)
 
     # Somente as respostas desta nutricionista. Nunca usar carregar_dados()
     # aqui: ela traz os dados de todas.

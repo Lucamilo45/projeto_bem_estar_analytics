@@ -438,6 +438,52 @@ def aplicar_tema(pagina: str) -> None:
         }}
         .card-colorido span {{ font-size: 0.96rem; line-height: 1.5; }}
 
+        .home-selo-convite {{ margin-right: 0.5rem; color: #0B7A61; }}
+
+        /* ===== CONTATO E CONVITE DA NUTRICIONISTA ===== */
+        .grade-botoes {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0.8rem;
+            margin: 0.4rem 0 1.4rem;
+        }}
+        .botao-contato {{
+            display: block;
+            text-align: center;
+            padding: 0.8rem 1rem;
+            border-radius: 14px;
+            text-decoration: none !important;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #FFFFFF !important;
+            box-shadow: var(--sombra);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }}
+        .botao-contato:hover {{ transform: translateY(-2px); box-shadow: var(--sombra-forte); }}
+        /* Tons escuros das marcas: o verde/laranja originais com texto branco ficam ilegíveis */
+        .botao-whatsapp {{ background: #0B7A61; }}
+        .botao-instagram {{ background: linear-gradient(45deg, #C13584, #833AB4); }}
+        .botao-qr {{ background: #0E7490; margin-top: 0.8rem; }}
+        .qr-convite {{
+            display: block;
+            width: 100%;
+            max-width: 260px;
+            margin: 0 auto;
+            border-radius: var(--raio);
+            border: 1.5px solid var(--borda);
+            box-shadow: var(--sombra);
+        }}
+        div[data-testid="stLinkButton"] a {{
+            background: #0B7A61 !important;
+            color: #FFFFFF !important;
+            border: 0 !important;
+            border-radius: 14px !important;
+            min-height: 3rem;
+            font-weight: 700 !important;
+        }}
+        div[data-testid="stLinkButton"] a p {{ color: #FFFFFF !important; font-weight: 700 !important; }}
+        div[data-testid="stLinkButton"] a:hover {{ background: #075E54 !important; }}
+
         {css_secundario}
 
         /* ===== CELULAR ===== */
