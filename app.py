@@ -3,7 +3,6 @@ import html
 import json
 import time
 from pathlib import Path
-from urllib.parse import quote
 
 import plotly.express as px
 import streamlit as st
@@ -12,7 +11,9 @@ from dotenv import load_dotenv
 
 import ai_advisor
 import analysis
+import anuncios
 import auth
+import conteudo_dicas
 import convite
 import database
 import styles
@@ -139,12 +140,46 @@ def render_home():
                 unsafe_allow_html=True,
             )
 
-    styles.cards_coloridos([
-        ("rosa", "🌙", "Sono e rotina", "Mapeie seus horários, a qualidade do sono e as vezes em que acorda à noite."),
-        ("amarelo", "⚡", "Energia no dia a dia", "Veja como alimentação, água e exercícios se conectam ao seu bem-estar."),
-        ("verde_agua", "🥗", "Alimentação", "Entenda seus hábitos de frutas, água, café e alimentos processados."),
-        ("roxo", "💡", "Dicas para você", "Receba seu índice de bem-estar e dicas práticas ao final."),
-    ])
+    # Cards clicáveis: cada um abre a página de dicas do seu tema.
+    colunas = st.columns(len(conteudo_dicas.TEMAS))
+    for coluna, (chave, tema) in zip(colunas, conteudo_dicas.TEMAS.items()):
+        with coluna:
+            if styles.card_clicavel(chave, tema["cor"], tema["icone"], tema["titulo"], tema["resumo"]):
+                st.session_state.tema = chave
+                ir_para("dicas")
+
+    render_publicidade()
+
+
+def render_publicidade() -> None:
+    """Espaços "Esporte" e "Parceiro", com anúncios da planilha do Google Sheets.
+    Sem planilha configurada (ou se ela falhar), não aparece nada."""
+    lista = anuncios.carregar_anuncios()
+    for espaco in anuncios.ESPACOS:
+        styles.espaco_anuncios(espaco, lista[espaco])
+
+
+# ============================================================
+# PÁGINAS DE DICAS (abertas pelos cards da página inicial)
+# ============================================================
+def render_dicas():
+    chave = st.session_state.get("tema")
+    if chave not in conteudo_dicas.TEMAS:
+        ir_para("home")
+    if st.button("⬅️ Voltar ao início"):
+        ir_para("home")
+
+    styles.pagina_dicas(conteudo_dicas.TEMAS[chave], conteudo_dicas.AVISO)
+    render_contato_nutricionista()
+
+    st.subheader("✨ Veja também")
+    outros = [(c, t) for c, t in conteudo_dicas.TEMAS.items() if c != chave]
+    for coluna, (outra, tema) in zip(st.columns(len(outros)), outros):
+        if coluna.button(f"{tema['icone']} {tema['titulo']}", key=f"ver_{outra}", width="stretch"):
+            st.session_state.tema = outra
+            st.rerun()
+    if st.button("🚀 Começar o questionário", type="primary", width="stretch"):
+        ir_para("consentimento")
 
 
 # ============================================================
@@ -362,34 +397,20 @@ def render_atividade():
 # CONTATO DA NUTRICIONISTA
 # ============================================================
 def render_contato_nutricionista() -> None:
-    """Mostra o WhatsApp e o Instagram da nutricionista que convidou a pessoa
-    (pelo link ?nutri=codigo). Sem nutricionista no link, ou sem contatos
-    cadastrados, mostra só a recomendação geral — nunca um contato de exemplo."""
+    """Cartão "Sua nutricionista" com botões grandes de WhatsApp (mensagem pronta)
+    e Instagram, com os dados da nutricionista do link do paciente (?nutri=codigo).
+    Sem nutricionista no link, ou sem contatos cadastrados, mostra só a
+    recomendação geral — nunca um contato de exemplo."""
     perfil = auth.perfil(st.session_state.nutricionista_id)
     if not perfil or not (perfil["whatsapp"] or perfil["instagram"]):
         st.caption("Quer uma orientação alimentar personalizada? Procure um(a) nutricionista.")
         return
 
-    nome = html.escape(perfil["nome"])
-    botoes = []
-    if perfil["whatsapp"]:
-        mensagem = quote(
-            f"Olá, {perfil['nome']}! Respondi o questionário de bem-estar "
-            "e gostaria de uma orientação nutricional."
-        )
-        botoes.append(
-            f'<a href="https://wa.me/{perfil["whatsapp"]}?text={mensagem}" target="_blank" '
-            f'rel="noopener" class="botao-contato botao-whatsapp">💬 WhatsApp de {nome}</a>'
-        )
-    if perfil["instagram"]:
-        botoes.append(
-            f'<a href="https://instagram.com/{perfil["instagram"]}" target="_blank" '
-            f'rel="noopener" class="botao-contato botao-instagram">📸 @{perfil["instagram"]}</a>'
-        )
-
-    st.subheader("🥗 Fale com a sua nutricionista")
-    st.caption(f"Quer uma orientação alimentar personalizada? Fale com {perfil['nome']}:")
-    st.markdown(f'<div class="grade-botoes">{"".join(botoes)}</div>', unsafe_allow_html=True)
+    styles.cartao_nutricionista(
+        perfil["nome"],
+        convite.link_whatsapp_paciente(perfil["whatsapp"], perfil["nome"]) if perfil["whatsapp"] else "",
+        convite.link_instagram(perfil["instagram"]) if perfil["instagram"] else "",
+    )
 
 
 def gerar_dicas(dados: dict) -> list:
@@ -464,6 +485,7 @@ def render_resumo():
         )
 
     render_contato_nutricionista()
+    render_publicidade()
 
     if st.button("🏠 Voltar ao início", type="primary"):
         st.session_state.user_data = {}
@@ -805,11 +827,13 @@ ROTAS = {
     "atividade": render_atividade,
     "resumo": render_resumo,
     "dashboard": render_dashboard,
+    "dicas": render_dicas,
 }
 
 # Tema visual (cores) de cada tela. Telas do questionário ficam roxas.
 TEMA_DA_TELA = {
     "home": "inicio",
+    "dicas": "inicio",
     "resumo": "resultado",
     "dashboard": "dashboard",
 }

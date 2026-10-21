@@ -12,6 +12,7 @@ cor principal foram conferidas com contraste mínimo de 4.5 (WCAG AA).
 """
 
 from html import escape
+from urllib.parse import quote
 
 import streamlit as st
 
@@ -408,20 +409,41 @@ def aplicar_tema(pagina: str) -> None:
             box-shadow: 0 18px 40px rgba(239, 79, 79, 0.18), 0 6px 16px rgba(13, 148, 136, 0.12);
             border: 6px solid #FFFFFF;
         }}
-        .grade-cards-coloridos {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1rem;
-            margin: 2rem 0 1rem;
-        }}
-        .card-colorido {{
+
+        .home-selo-convite {{ margin-right: 0.5rem; color: #0B7A61; }}
+
+        /* ===== CARDS CLICÁVEIS (página inicial) =====
+           Cada card é um st.container(key="cardtema_...") com um botão dentro.
+           O ::after do botão se estica sobre o card inteiro: clicar em
+           qualquer parte do card equivale a clicar no botão. */
+        [class*="st-key-cardtema_"] {{
+            position: relative;
             border-radius: var(--raio);
-            padding: 1.4rem 1.3rem;
+            padding: 1.4rem 1.3rem 1.2rem;
             box-shadow: var(--sombra);
             transition: transform 0.15s ease, box-shadow 0.15s ease;
+            cursor: pointer;
+            margin-top: 1.4rem;
         }}
-        .card-colorido:hover {{ transform: translateY(-4px); box-shadow: var(--sombra-forte); }}
-        .card-colorido .bolha-icone {{
+        [class*="st-key-cardtema_"]:hover {{ transform: translateY(-4px); box-shadow: var(--sombra-forte); }}
+        [class*="st-key-cardtema_"] [data-testid="stElementContainer"],
+        [class*="st-key-cardtema_"] [data-testid="stButton"],
+        [class*="st-key-cardtema_"] [data-testid="stButton"] button {{ position: static !important; }}
+        [class*="st-key-cardtema_"] [data-testid="stButton"] button,
+        [class*="st-key-cardtema_"] [data-testid="stButton"] button:hover {{
+            transform: none !important;  /* sem isso a área clicável "pula" no hover */
+            min-height: 2.8rem !important;
+        }}
+        [class*="st-key-cardtema_"] [data-testid="stButton"] button p {{ font-size: 1rem !important; }}
+        [class*="st-key-cardtema_"] [data-testid="stButton"] button::after {{
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: var(--raio);
+        }}
+        /* Mesma altura em todos os cards, para os botões ficarem alinhados */
+        .card-clicavel-conteudo {{ min-height: 15rem; }}
+        .card-clicavel-conteudo .bolha-icone {{
             width: 64px; height: 64px;
             border-radius: 50%;
             background: #FFFFFF;
@@ -430,23 +452,157 @@ def aplicar_tema(pagina: str) -> None:
             margin-bottom: 0.8rem;
             box-shadow: 0 6px 14px rgba(0, 0, 0, 0.06);
         }}
-        .card-colorido strong {{
+        .card-clicavel-conteudo strong {{
             display: block;
             font-family: var(--fonte-titulo);
             font-size: 1.12rem;
             margin-bottom: 0.3rem;
         }}
-        .card-colorido span {{ font-size: 0.96rem; line-height: 1.5; }}
+        .card-clicavel-conteudo span {{ font-size: 0.96rem; line-height: 1.5; }}
 
-        .home-selo-convite {{ margin-right: 0.5rem; color: #0B7A61; }}
+        /* ===== CARTÃO "SUA NUTRICIONISTA" (para o paciente) ===== */
+        .nutri-cta {{
+            background: #FFFFFF;
+            border: 1.5px solid #E2E8F0;
+            border-radius: var(--raio);
+            box-shadow: var(--sombra);
+            padding: 1.4rem 1.5rem 1.5rem;
+            margin: 1.2rem 0 1.6rem;
+        }}
+        .nutri-cta-topo {{ display: flex; align-items: center; gap: 1rem; margin-bottom: 0.9rem; }}
+        .nutri-avatar {{
+            width: 64px; height: 64px; flex-shrink: 0;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0B7A61, #833AB4);
+            color: #FFFFFF;
+            font-family: var(--fonte-titulo);
+            font-weight: 800;
+            font-size: 1.45rem;
+            display: flex; align-items: center; justify-content: center;
+        }}
+        .nutri-cta-topo small {{
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #475569;
+        }}
+        .nutri-cta-topo strong {{ font-family: var(--fonte-titulo); font-size: 1.35rem; color: #1F2937; }}
+        .nutri-cta p {{ color: #334155 !important; margin: 0 0 1rem; }}
+        .botoes-nutri {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 0.9rem;
+        }}
+        .botao-nutri {{
+            display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+            min-height: 64px;
+            padding: 0.9rem 1.2rem;
+            border-radius: 18px;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #FFFFFF !important;
+            text-decoration: none !important;
+            box-shadow: var(--sombra);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }}
+        .botao-nutri:hover {{ transform: translateY(-3px); box-shadow: var(--sombra-forte); }}
+        .botao-nutri .icone {{ font-size: 1.5rem; line-height: 1; }}
+        .botao-nutri-whatsapp {{ background: #0B7A61; }}
+        .botao-nutri-whatsapp:hover {{ background: #075E54; }}
+        .botao-nutri-instagram {{ background: linear-gradient(45deg, #C13584, #833AB4); }}
+        .botao-nutri-instagram:hover {{ background: linear-gradient(45deg, #A62C70, #6E2F99); }}
+
+        /* ===== ESPAÇOS DE PUBLICIDADE ===== */
+        .espaco-anuncio {{ margin: 2.2rem 0 1rem; }}
+        .espaco-cabecalho {{ display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.7rem; flex-wrap: wrap; }}
+        .espaco-cabecalho h3 {{ margin: 0 !important; font-size: 1.25rem !important; }}
+        .etiqueta-publicidade {{
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            background: #E2E8F0;
+            color: #334155;
+            border-radius: 999px;
+            padding: 0.2rem 0.65rem;
+        }}
+        .dica-carrossel {{ font-size: 0.85rem; color: var(--texto-suave); margin-left: auto; }}
+        .carrossel {{
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            padding: 0.2rem 0.2rem 0.8rem;
+        }}
+        .anuncio {{
+            flex: 0 0 calc((100% - 2rem) / 3);
+            min-width: 240px;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            background: #FFFFFF;
+            border: 1.5px solid #E2E8F0;
+            border-radius: var(--raio);
+            overflow: hidden;
+            box-shadow: var(--sombra);
+            text-decoration: none !important;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }}
+        .anuncio:hover {{ transform: translateY(-3px); box-shadow: var(--sombra-forte); }}
+        .anuncio-imagem {{
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background-color: #F1F5F9;
+            background-size: cover;
+            background-position: center;
+        }}
+        .anuncio .corpo {{ padding: 1rem 1.1rem 1.1rem; display: flex; flex-direction: column; gap: 0.35rem; flex: 1; }}
+        .anuncio strong {{ font-family: var(--fonte-titulo); font-size: 1.05rem; color: #1F2937; }}
+        .anuncio span {{ color: #475569; font-size: 0.93rem; line-height: 1.5; }}
+        .anuncio .chamada {{ margin-top: auto; padding-top: 0.4rem; font-weight: 700; color: #0F766E; }}
+        .anuncio-parceiro {{ flex-direction: row; }}
+        .anuncio-parceiro .anuncio-imagem {{ width: 42%; flex-shrink: 0; aspect-ratio: auto; min-height: 200px; }}
+        .anuncio-parceiro .corpo {{ padding: 1.4rem 1.6rem; justify-content: center; }}
+        .anuncio-parceiro strong {{ font-size: 1.3rem; }}
+
+        /* ===== PÁGINAS DE DICAS ===== */
+        .hero-tema {{
+            border-radius: var(--raio);
+            padding: clamp(1.5rem, 4vw, 2.6rem);
+            box-shadow: var(--sombra-forte);
+            margin-bottom: 1.4rem;
+        }}
+        .hero-tema .hero-icone {{ font-size: clamp(2.6rem, 7vw, 3.6rem); line-height: 1; }}
+        .hero-tema h1 {{ margin: 0.5rem 0 0.4rem; color: inherit !important; }}
+        .hero-tema p {{ margin: 0; font-size: clamp(1rem, 2.2vw, 1.15rem); max-width: 46rem; color: inherit !important; }}
+        .grade-dicas {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.4rem;
+        }}
+        .secao-dicas {{
+            background: #FFFFFF;
+            border-radius: var(--raio);
+            border-left: 8px solid;
+            padding: 1.2rem 1.4rem;
+            box-shadow: var(--sombra);
+        }}
+        .secao-dicas h3 {{ margin: 0 0 0.6rem !important; font-size: 1.2rem !important; color: inherit !important; }}
+        .secao-dicas ul {{ margin: 0; padding-left: 1.2rem; }}
+        .secao-dicas li {{ color: #2B2B2B; line-height: 1.6; margin-bottom: 0.35rem; }}
+        .aviso-dicas {{
+            background: #FFFFFF;
+            border: 2px dashed;
+            border-radius: var(--raio);
+            padding: 1rem 1.3rem;
+            margin-bottom: 1.4rem;
+            font-weight: 600;
+        }}
 
         /* ===== CONTATO E CONVITE DA NUTRICIONISTA ===== */
-        .grade-botoes {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 0.8rem;
-            margin: 0.4rem 0 1.4rem;
-        }}
         .botao-contato {{
             display: block;
             text-align: center;
@@ -460,9 +616,6 @@ def aplicar_tema(pagina: str) -> None:
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }}
         .botao-contato:hover {{ transform: translateY(-2px); box-shadow: var(--sombra-forte); }}
-        /* Tons escuros das marcas: o verde/laranja originais com texto branco ficam ilegíveis */
-        .botao-whatsapp {{ background: #0B7A61; }}
-        .botao-instagram {{ background: linear-gradient(45deg, #C13584, #833AB4); }}
         .botao-qr {{ background: #0E7490; margin-top: 0.8rem; }}
         .qr-convite {{
             display: block;
@@ -492,6 +645,10 @@ def aplicar_tema(pagina: str) -> None:
             .progresso-rotulos {{ display: none; }}
             .cartao-recomendacao {{ flex-direction: column; gap: 0.5rem; }}
             .home-ilustracao {{ border-radius: 20px; border-width: 4px; }}
+            .card-clicavel-conteudo {{ min-height: 0; }}
+            .anuncio {{ flex-basis: 85%; }}
+            .anuncio-parceiro {{ flex-direction: column; }}
+            .anuncio-parceiro .anuncio-imagem {{ width: 100%; aspect-ratio: 16 / 9; min-height: 0; }}
         }}
         </style>
         """,
@@ -513,29 +670,120 @@ def hero(icone: str, titulo: str, subtitulo: str, claro: bool = False) -> None:
     )
 
 
-def cards_destaque(itens: list[tuple[str, str, str]]) -> None:
-    """Grade de cards brancos com (ícone, título, texto)."""
-    html = "".join(
-        f'<div class="card"><div class="card-icone">{icone}</div>'
-        f"<strong>{escape(titulo)}</strong><span>{escape(texto)}</span></div>"
-        for icone, titulo, texto in itens
-    )
-    st.markdown(f'<div class="grade-cards">{html}</div>', unsafe_allow_html=True)
-
-
-def cards_coloridos(itens: list[tuple[str, str, str, str]]) -> None:
-    """Grade de cards com fundo colorido claro: (cor, ícone, título, texto).
-    cor é uma chave de CORES_CARDS_INICIO ("rosa", "amarelo", "verde_agua", "roxo")."""
-    html = ""
-    for cor, icone, titulo, texto in itens:
-        fundo, tinta = CORES_CARDS_INICIO[cor]
-        html += (
-            f'<div class="card-colorido" style="background:{fundo}; color:{tinta};">'
-            f'<div class="bolha-icone">{icone}</div>'
-            f'<strong style="color:{tinta};">{escape(titulo)}</strong>'
-            f'<span style="color:{tinta};">{escape(texto)}</span></div>'
+def card_clicavel(chave: str, cor: str, icone: str, titulo: str, texto: str) -> bool:
+    """Card colorido da página inicial que funciona como botão.
+    Retorna True quando a pessoa clica em qualquer parte do card."""
+    fundo, tinta = CORES_CARDS_INICIO[cor]
+    with st.container(key=f"cardtema_{chave}"):
+        st.markdown(
+            f"""
+            <style>
+            .st-key-cardtema_{chave} {{ background: {fundo}; }}
+            .st-key-cardtema_{chave} div[data-testid="stButton"] button:not([kind="primary"]) {{
+                background: {tinta} !important;
+                color: #FFFFFF !important;
+            }}
+            </style>
+            <div class="card-clicavel-conteudo" style="color:{tinta};">
+                <div class="bolha-icone">{icone}</div>
+                <strong style="color:{tinta};">{escape(titulo)}</strong>
+                <span style="color:{tinta};">{escape(texto)}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-    st.markdown(f'<div class="grade-cards-coloridos">{html}</div>', unsafe_allow_html=True)
+        return st.button("Ver dicas →", key=f"btn_tema_{chave}", width="stretch")
+
+
+def cartao_nutricionista(nome: str, link_whatsapp: str, link_instagram: str) -> None:
+    """Cartão "Sua nutricionista" com botões grandes de WhatsApp e Instagram.
+    Botões sem link (contato não cadastrado) não aparecem."""
+    iniciais = "".join(parte[0] for parte in nome.split()[:2]).upper() or "N"
+    botoes = ""
+    if link_whatsapp:
+        botoes += (
+            f'<a class="botao-nutri botao-nutri-whatsapp" href="{escape(link_whatsapp, quote=True)}" '
+            'target="_blank" rel="noopener"><span class="icone">💬</span>Falar no WhatsApp</a>'
+        )
+    if link_instagram:
+        botoes += (
+            f'<a class="botao-nutri botao-nutri-instagram" href="{escape(link_instagram, quote=True)}" '
+            'target="_blank" rel="noopener"><span class="icone">📸</span>Seguir no Instagram</a>'
+        )
+    st.markdown(
+        f'<div class="nutri-cta"><div class="nutri-cta-topo">'
+        f'<div class="nutri-avatar" aria-hidden="true">{escape(iniciais)}</div>'
+        f"<div><small>Sua nutricionista</small><strong>{escape(nome)}</strong></div></div>"
+        "<p>Quer uma orientação alimentar feita para você? Converse com sua nutricionista "
+        "e acompanhe as dicas no Instagram.</p>"
+        f'<div class="botoes-nutri">{botoes}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+# Caracteres que podem ficar como estão num endereço dentro de url('...').
+_URL_SEGURA = ":/?#[]@!$&*+,;=%-._~"
+
+
+def _anuncio_html(anuncio: dict, classe: str) -> str:
+    # A imagem vira fundo de um quadro (e não uma tag <img>): se o endereço
+    # estiver errado, aparece só o fundo claro, sem o ícone de imagem quebrada.
+    # quote() codifica aspas, parênteses e espaços, que quebrariam o url(...).
+    imagem = (
+        '<div class="anuncio-imagem" aria-hidden="true" '
+        f"style=\"background-image:url('{quote(anuncio['imagem_url'], safe=_URL_SEGURA)}');\"></div>"
+        if anuncio["imagem_url"] else ""
+    )
+    descricao = f'<span>{escape(anuncio["descricao"])}</span>' if anuncio["descricao"] else ""
+    return (
+        f'<a class="{classe}" href="{escape(anuncio["link"], quote=True)}" target="_blank" '
+        f'rel="noopener sponsored">{imagem}<div class="corpo">'
+        f'<strong>{escape(anuncio["titulo"])}</strong>{descricao}'
+        f'<div class="chamada">Saiba mais →</div></div></a>'
+    )
+
+
+def espaco_anuncios(espaco: str, anuncios: list[dict]) -> None:
+    """Espaço de publicidade com a etiqueta "Publicidade". Não mostra nada se
+    não houver anúncios. "esporte" vira um carrossel de cards; "parceiro"
+    mostra um banner horizontal (o primeiro anúncio ativo)."""
+    if not anuncios:
+        return
+    if espaco == "esporte":
+        titulo = "🏃 Esporte"
+        dica = '<span class="dica-carrossel">arraste para ver mais →</span>' if len(anuncios) > 3 else ""
+        conteudo = '<div class="carrossel">' + "".join(_anuncio_html(a, "anuncio") for a in anuncios) + "</div>"
+    else:
+        titulo = "🎓 Parceiro"
+        dica = ""
+        conteudo = _anuncio_html(anuncios[0], "anuncio anuncio-parceiro")
+    st.markdown(
+        f'<div class="espaco-anuncio espaco-{espaco}"><div class="espaco-cabecalho">'
+        f'<h3>{titulo}</h3><span class="etiqueta-publicidade">Publicidade</span>{dica}</div>'
+        f"{conteudo}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def pagina_dicas(tema: dict, aviso: str) -> None:
+    """Monta a página de dicas de um tema, com as cores do tema."""
+    fundo, tinta = CORES_CARDS_INICIO[tema["cor"]]
+    secoes = "".join(
+        f'<div class="secao-dicas" style="border-left-color:{tinta}; color:{tinta};">'
+        f"<h3>{icone} {escape(titulo)}</h3><ul>"
+        + "".join(f"<li>{escape(item)}</li>" for item in itens)
+        + "</ul></div>"
+        for icone, titulo, itens in tema["secoes"]
+    )
+    st.markdown(
+        f'<div class="hero-tema" style="background:{fundo}; color:{tinta};">'
+        f'<div class="hero-icone">{tema["icone"]}</div>'
+        f'<h1>{escape(tema["titulo"])}</h1><p>{escape(tema["introducao"])}</p></div>'
+        f'<div class="grade-dicas">{secoes}</div>'
+        f'<div class="aviso-dicas" style="border-color:{tinta}; color:{tinta};">'
+        f"🩺 {escape(aviso)}</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def cards_indicadores(itens: list[tuple[str, str, str, str]], pagina: str) -> None:

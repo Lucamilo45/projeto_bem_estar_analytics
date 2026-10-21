@@ -1,0 +1,5 @@
+ativo,espaco,titulo,descricao,imagem_url,link,data_inicio,data_fim
+sim,esporte,Corrida de rua (exemplo),Inscrições abertas para a corrida do bairro. Troque este texto pelo anúncio real.,,https://example.com,2026-10-01,2026-12-31
+sim,esporte,Loja de artigos esportivos (exemplo),Tênis e roupas para caminhada e corrida. Troque este texto pelo anúncio real.,,https://example.com,,
+nao,esporte,Evento esportivo (exemplo desativado),Este anúncio não aparece porque a coluna ativo está como nao.,,https://example.com,,
+sim,parceiro,FMU (exemplo),Troque este texto pelo anúncio da FMU e o link pelo endereço da página da faculdade.,,https://example.com,2026-10-01,

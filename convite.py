@@ -42,6 +42,19 @@ def link_compartilhar_whatsapp(nome: str, link: str) -> str:
     return f"https://wa.me/?text={quote(mensagem)}"
 
 
+def link_whatsapp_paciente(numero: str, nome: str) -> str:
+    """Conversa no WhatsApp da nutricionista, com uma mensagem pronta do paciente."""
+    mensagem = (
+        f"Olá, {nome}! Vim pelo app de Bem-Estar e respondi o questionário. "
+        "Gostaria de conversar sobre uma orientação nutricional."
+    )
+    return f"https://wa.me/{numero}?text={quote(mensagem)}"
+
+
+def link_instagram(usuario: str) -> str:
+    return f"https://www.instagram.com/{usuario}/"
+
+
 # Fonte do cartão do QR Code. A fonte padrão do Pillow não tem acentos
 # ("Questionário" sairia "Question?rio"), por isso o projeto inclui a
 # Poppins (licença SIL Open Font License, em assets/fontes/OFL.txt).

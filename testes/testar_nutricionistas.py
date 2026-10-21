@@ -104,6 +104,31 @@ with tempfile.TemporaryDirectory() as pasta:
     texto = html_da_tela(tela_resultado("caio"))
     confere("nutricionista sem contatos cadastrados: sem botões", "wa.me" not in texto)
 
+    texto = html_da_tela(tela_resultado("ana"))
+    confere("botões grandes 'Falar no WhatsApp' e 'Seguir no Instagram'",
+            "Falar no WhatsApp" in texto and "Seguir no Instagram" in texto and "botao-nutri" in texto)
+    whatsapp = re.search(r'href="(https://wa\.me/[^"]+)"', texto).group(1)
+    confere("mensagem pronta do WhatsApp cita o nome da nutricionista",
+            "Olá, Ana Souza! Vim pelo app de Bem-Estar" in unquote(whatsapp))
+    confere("Instagram leva ao perfil certo", 'href="https://www.instagram.com/ana.nutri/"' in texto)
+    confere("cartão mostra o nome e as iniciais", "Ana Souza" in texto and ">AS<" in texto)
+
+    os.environ["WHATSAPP_NUTRI_CAIO"] = "5531955554444"
+    texto = html_da_tela(tela_resultado("caio"))
+    confere("só WhatsApp cadastrado: aparece só o botão do WhatsApp",
+            "Falar no WhatsApp" in texto and "Seguir no Instagram" not in texto)
+    del os.environ["WHATSAPP_NUTRI_CAIO"]
+
+    for nutri, deve_aparecer in (("ana", True), ("", False)):
+        at = AppTest.from_file("app.py", default_timeout=60)
+        at.session_state.step = "dicas"
+        at.session_state.tema = "alimentacao"
+        at.session_state.nutricionista_id = nutri
+        texto = html_da_tela(at.run())
+        confere(f"página de dicas {'com' if nutri else 'sem'} link de nutricionista: "
+                f"cartão {'aparece' if deve_aparecer else 'não aparece'}",
+                not at.exception and ("Falar no WhatsApp" in texto) == deve_aparecer)
+
     at = AppTest.from_file("app.py", default_timeout=60)
     at.query_params["nutri"] = "ana"
     at.run()

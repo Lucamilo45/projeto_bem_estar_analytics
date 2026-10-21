@@ -13,6 +13,8 @@ __pycache__/
 # contêm respostas reais de pessoas, não são "código")
 # ============================================================
 *.csv
+# Exceção: modelo da planilha de anúncios (não tem dados pessoais)
+!anuncios_modelo.csv
 data/
 *.csv.bak
 

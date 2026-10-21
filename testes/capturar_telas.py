@@ -12,11 +12,15 @@ Como rodar (na pasta do projeto):
 As fotos ficam na pasta testes/capturas/ (ignorada pelo git).
 """
 
+import functools
+import http.server
 import os
 import secrets
+import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.request
 from urllib.parse import unquote
@@ -51,6 +55,30 @@ def criar_dados_ficticios(caminho: str) -> None:
         })
 
 
+def servir_anuncios(pasta: str) -> str:
+    """Faz o papel do Google Sheets: serve um CSV de anúncios fictícios e uma
+    imagem numa porta local. Retorna o endereço do CSV."""
+    shutil.copy(os.path.join(PASTA_PROJETO, "assets", "banner_home.webp"), os.path.join(pasta, "foto.webp"))
+    servidor = http.server.ThreadingHTTPServer(
+        ("127.0.0.1", 0),
+        functools.partial(http.server.SimpleHTTPRequestHandler, directory=pasta),
+    )
+    servidor.RequestHandlerClass.log_message = lambda *args: None
+    threading.Thread(target=servidor.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{servidor.server_address[1]}"
+    linhas = [
+        "ativo,espaco,titulo,descricao,imagem_url,link,data_inicio,data_fim",
+        f"sim,esporte,Corrida de Rua Ficticia,Inscrições abertas para a corrida do bairro.,{base}/foto.webp,https://example.com/1,,",
+        f"sim,esporte,Loja Esportiva Ficticia,Tênis e roupas para caminhada.,{base}/foto.webp,https://example.com/2,,",
+        f"sim,esporte,Anúncio com imagem quebrada,O endereço da imagem não existe.,{base}/nao_existe.jpg,https://example.com/3,,",
+        "sim,esporte,Anúncio sem imagem,Este anúncio não tem imagem.,,https://example.com/4,,",
+        f"sim,parceiro,Faculdade Parceira Ficticia,Texto do anúncio do parceiro.,{base}/foto.webp,https://example.com/5,,",
+    ]
+    with open(os.path.join(pasta, "anuncios.csv"), "w", encoding="utf-8") as arquivo:
+        arquivo.write("\n".join(linhas) + "\n")
+    return f"{base}/anuncios.csv"
+
+
 def esperar_servidor() -> None:
     for _ in range(60):
         try:
@@ -68,9 +96,9 @@ def esperar_tela(pagina) -> None:
     # quando termina de rodar o app.
     time.sleep(0.5)
     pagina.wait_for_selector(
-        '[data-testid="stApp"][data-test-script-state="notRunning"]', timeout=60000
+        '[data-testid="stApp"][data-test-script-state="notRunning"]', timeout=120000
     )
-    pagina.wait_for_selector('[data-testid="stMainBlockContainer"] > div', timeout=60000)
+    pagina.wait_for_selector('[data-testid="stMainBlockContainer"] > div', timeout=120000)
     time.sleep(1.5)
 
 
@@ -89,7 +117,8 @@ with tempfile.TemporaryDirectory() as pasta:
     criar_dados_ficticios(os.path.join(pasta, "dados_sono.csv"))
     env = dict(os.environ, SENHA_NUTRI_DEMO=SENHA, ANTHROPIC_API_KEY="",
                NOME_NUTRI_DEMO="Nutricionista Demo", WHATSAPP_NUTRI_DEMO="5511900000000",
-               INSTAGRAM_NUTRI_DEMO="nutri.demo", DADOS_CSV=os.path.join(pasta, "dados_sono.csv"))
+               INSTAGRAM_NUTRI_DEMO="nutri.demo", DADOS_CSV=os.path.join(pasta, "dados_sono.csv"),
+               ANUNCIOS_CSV_URL=servir_anuncios(pasta))
     env.pop("APP_URL", None)  # o link deve usar o endereço real do app
     servidor = subprocess.Popen(
         [os.path.join(PASTA_PROJETO, "venv", "Scripts", "streamlit.exe"), "run", "app.py",
@@ -121,6 +150,36 @@ with tempfile.TemporaryDirectory() as pasta:
                 print(f"  ilustração carregou: {info['carregou']} | largura "
                       f"{info['largura']}px de {info['coluna']}px da coluna")
 
+                # Cards clicáveis: clicar no ÍCONE do card (fora do botão) deve abrir as dicas.
+                for chave, titulo in (("alimentacao", "Alimentação"), ("exercicios", "Caminhadas e exercícios")):
+                    card = pagina.locator(f".st-key-cardtema_{chave}")
+                    card.scroll_into_view_if_needed()
+                    # Clique de mouse na posição do ícone (a camada do botão fica por cima
+                    # dele de propósito, por isso não dá para "clicar no ícone" diretamente).
+                    caixa = card.locator(".bolha-icone").bounding_box()
+                    pagina.mouse.click(caixa["x"] + caixa["width"] / 2, caixa["y"] + caixa["height"] / 2)
+                    esperar_tela(pagina)
+                    abriu = pagina.locator(".hero-tema h1").first.inner_text().strip()
+                    print(f"  clique no ícone do card '{titulo}' abriu: {abriu!r}")
+                    fotografar(pagina, f"{tamanho}_1b_dicas_{chave}")
+                    clicar(pagina, "⬅️ Voltar ao início")
+                cursor = pagina.locator(".st-key-cardtema_sono").evaluate("e => getComputedStyle(e).cursor")
+                print(f"  cursor sobre o card: {cursor}")
+                pagina.locator(".st-key-cardtema_sono").scroll_into_view_if_needed()
+                time.sleep(0.5)
+                fotografar(pagina, f"{tamanho}_1a_cards")
+
+                # Espaços de publicidade
+                esporte = pagina.locator(".espaco-esporte")
+                esporte.scroll_into_view_if_needed()
+                time.sleep(1.5)
+                imagens = pagina.locator(".anuncio").evaluate_all(
+                    "els => els.map(e => e.querySelector('.anuncio-imagem') ? 'com imagem' : 'sem imagem')")
+                print(f"  publicidade: {pagina.locator('.etiqueta-publicidade').count()} etiquetas | "
+                      f"{pagina.locator('.espaco-esporte .anuncio').count()} anúncios de esporte | "
+                      f"{pagina.locator('.espaco-parceiro .anuncio').count()} parceiro | imagens: {imagens}")
+                fotografar(pagina, f"{tamanho}_1c_publicidade")
+
                 clicar(pagina, "🚀 Começar o questionário")
                 pagina.get_by_text("Li e concordo").click()
                 esperar_tela(pagina)
@@ -135,7 +194,7 @@ with tempfile.TemporaryDirectory() as pasta:
                     clicar(pagina, "Próximo ➡️")
                 clicar(pagina, "🎉 Finalizar")
                 fotografar(pagina, f"{tamanho}_3_resultado")
-                contatos = pagina.locator(".botao-contato")
+                contatos = pagina.locator(".botao-nutri")
                 print("  contatos para o paciente:",
                       [contatos.nth(i).get_attribute("href").split("?")[0] for i in range(contatos.count())])
                 contatos.first.scroll_into_view_if_needed()
